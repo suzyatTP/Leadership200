@@ -25,7 +25,7 @@ def init_db():
     cur.execute("SELECT COUNT(*) FROM state;")
     count = cur.fetchone()[0]
     if count == 0:
-        cur.execute("INSERT INTO state (data) VALUES ('{}');")
+        cur.execute("INSERT INTO state (id, data) VALUES (1, '{}') ON CONFLICT (id) DO NOTHING;")
     conn.commit()
     cur.close()
     conn.close()
