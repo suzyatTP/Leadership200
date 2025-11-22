@@ -1,66 +1,111 @@
-from flask import Flask, request, jsonify
-import psycopg2
 import os
 import json
+from flask import Flask, send_from_directory, request, jsonify
+import psycopg2
 
-app = Flask(__name__)
+# Use Render's DATABASE_URL
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
-# Connect to Render PostgreSQL using environment variable DATABASE_URL
-DATABASE_URL = os.getenv("DATABASE_URL")
 
-def get_connection():
+def get_conn():
+    if not DATABASE_URL:
+        raise RuntimeError("DATABASE_URL environment variable is not set")
     return psycopg2.connect(DATABASE_URL, sslmode="require")
 
-# Ensure table exists
-def init_db():
-    conn = get_connection()
+
+def ensure_table():
+    conn = get_conn()
     cur = conn.cursor()
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS state (
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS leadership_state (
             id SERIAL PRIMARY KEY,
-            data JSONB NOT NULL
+            state_json JSONB NOT NULL,
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
-    """)
-    # Ensure exactly one row exists
-    cur.execute("SELECT COUNT(*) FROM state;")
-    count = cur.fetchone()[0]
-    if count == 0:
-        cur.execute("INSERT INTO state (id, data) VALUES (1, '{}') ON CONFLICT (id) DO NOTHING;")
+        """
+    )
     conn.commit()
     cur.close()
     conn.close()
 
-init_db()
+
+ensure_table()
+
+app = Flask(__name__, static_folder="static", static_url_path="")
+
+
+@app.route("/")
+def index():
+    return send_from_directory(app.static_folder, "index.html")
+
+
+def default_state():
+    return {
+        "goal": 100000000,
+        "title": "LEADERSHIP 200",
+        "rows": [
+            {"received": 0, "needed": 1, "label": "1 Gift of $25,000,000"},
+            {"received": 0, "needed": 1, "label": "1 Gift/Pledge of $20,000,000"},
+            {"received": 1, "needed": 1, "label": "1 Gift/Pledge of $10,000,000"},
+            {"received": 0, "needed": 1, "label": "1 Gift/Pledge of $5,000,000"},
+            {"received": 0, "needed": 2, "label": "2 Gifts/Pledges of $2,500,000"},
+            {"received": 0, "needed": 10, "label": "10 Gifts/Pledges of $1,000,000"},
+            {"received": 0, "needed": 14, "label": "14 Gifts/Pledges of $500,000"},
+            {"received": 0, "needed": 20, "label": "20 Gifts/Pledges of $250,000"},
+            {"received": 0, "needed": 50, "label": "50 Gifts/Pledges of $100,000"},
+            {"received": 0, "needed": 100, "label": "100 Gifts/Pledges of $50,000"},
+        ],
+    }
 
 
 @app.route("/api/state", methods=["GET"])
-def load_state():
-    conn = get_connection()
+def get_state():
+    conn = get_conn()
     cur = conn.cursor()
-    cur.execute("SELECT data FROM state LIMIT 1;")
+    cur.execute("SELECT state_json FROM leadership_state ORDER BY id LIMIT 1;")
     row = cur.fetchone()
     cur.close()
     conn.close()
 
-    if not row:
-        return jsonify({})
-    return jsonify(row[0])
+    if row and row[0] is not None:
+        return jsonify(row[0])
+    else:
+        return jsonify(default_state())
 
 
 @app.route("/api/state", methods=["POST"])
 def save_state():
-    data = request.json
+    data = request.get_json() or {}
 
-    conn = get_connection()
+    conn = get_conn()
     cur = conn.cursor()
-    cur.execute("UPDATE state SET data = %s WHERE id = 1;", (json.dumps(data),))
+
+    cur.execute(
+        """
+        UPDATE leadership_state
+           SET state_json = %s,
+               updated_at = NOW()
+         WHERE id = (SELECT id FROM leadership_state ORDER BY id LIMIT 1);
+        """,
+        (json.dumps(data),),
+    )
+
+    if cur.rowcount == 0:
+        cur.execute(
+            """
+            INSERT INTO leadership_state (state_json)
+            VALUES (%s);
+            """,
+            (json.dumps(data),),
+        )
+
     conn.commit()
     cur.close()
     conn.close()
 
     return jsonify({"status": "ok"})
-    
 
-@app.route("/")
-def home():
-    return app.send_static_file("index.html")
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)
