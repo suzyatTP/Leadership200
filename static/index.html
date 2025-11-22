@@ -579,6 +579,68 @@
     return parseNumber(match[1]);
   }
 
+  function extractGiftAmountFromLabel(label) {
+    if (!label) return 0;
+    const match = label.match(/\$([\d,]+(\.\d+)?)/);
+    if (!match) return 0;
+    return parseNumber(match[1]);
+  }
+
+  // ---------- NEW: STATE HELPERS ----------
+
+  // Build a JS object representing everything we care about
+  function getStateFromDOM() {
+    const rows = Array.from(rowsContainer.querySelectorAll(".level-row")).map((row) => {
+      const receivedInput = row.querySelector(".received-input");
+      const neededInput = row.querySelector(".needed-input");
+      const labelInput = row.querySelector(".label-input");
+      return {
+        received: parseNumber(receivedInput.value),
+        needed: parseNumber(neededInput.value),
+        label: labelInput.value || ""
+      };
+    });
+
+    return {
+      goal: parseNumber(goalInput.value),
+      title: headerTitleEl.textContent || "Leadership 200",
+      rows: rows
+    };
+  }
+
+  // Create rows based on a state object from the server
+  function loadStateIntoDOM(state) {
+    rowsContainer.innerHTML = "";
+    rowCounter = 0;
+
+    goalInput.value = state.goal || "";
+    headerTitleEl.textContent = state.title || "LEADERSHIP 200";
+
+    (state.rows || []).forEach(r => {
+      addRow({
+        received: r.received,
+        needed: r.needed,
+        label: r.label
+      });
+    });
+
+    recalcAll();
+  }
+
+  // Save state to backend (fire and forget)
+  function saveState() {
+    const state = getStateFromDOM();
+    fetch("/api/state", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(state)
+    }).catch(err => {
+      console.error("Failed to save state", err);
+    });
+  }
+
+  // ---------- END NEW HELPERS ----------
+
   const rowsContainer = document.getElementById("rowsContainer");
   const addRowBtn = document.getElementById("addRowBtn");
   const goalInput = document.getElementById("goalInput");
@@ -737,6 +799,9 @@
         ? totalNeeded.toLocaleString("en-US") + " LEADERSHIP GIFTS/PLEDGES"
         : "0 LEADERSHIP GIFTS/PLEDGES";
     bottomBannerEl.textContent = giftsText;
+
+    // NEW: persist current state
+    saveState();
   }
 
   goalInput.addEventListener("input", recalcAll);
@@ -746,20 +811,35 @@
 
   addRowBtn.addEventListener("click", () => addRow());
 
-  /* Seed example rows like your template */
-  addRow({ received: 0, needed: 1, label: "1 Gift of $25,000,000" });
-  addRow({ received: 0, needed: 1, label: "1 Gift/Pledge of $20,000,000" });
-  addRow({ received: 1, needed: 1, label: "1 Gift/Pledge of $10,000,000" });
-  addRow({ received: 0, needed: 1, label: "1 Gift/Pledge of $5,000,000" });
-  addRow({ received: 0, needed: 2, label: "2 Gifts/Pledges of $2,500,000" });
-  addRow({ received: 0, needed: 10, label: "10 Gifts/Pledges of $1,000,000" });
-  addRow({ received: 0, needed: 14, label: "14 Gifts/Pledges of $500,000" });
-  addRow({ received: 0, needed: 20, label: "20 Gifts/Pledges of $250,000" });
-  addRow({ received: 0, needed: 50, label: "50 Gifts/Pledges of $100,000" });
-  addRow({ received: 0, needed: 100, label: "100 Gifts/Pledges of $50,000" });
+  // Load initial state from the backend
+  fetch("/api/state")
+    .then(res => res.json())
+    .then(state => {
+      loadStateIntoDOM(state);
+    })
+    .catch(err => {
+      console.error("Failed to load state, falling back to defaults", err);
 
-  goalInput.value = "100000000";
-  recalcAll();
+      // Fallback defaults if API isn't ready
+      const defaultState = {
+        goal: 100000000,
+        title: "LEADERSHIP 200",
+        rows: [
+          { received: 0, needed: 1, label: "1 Gift of $25,000,000" },
+          { received: 0, needed: 1, label: "1 Gift/Pledge of $20,000,000" },
+          { received: 1, needed: 1, label: "1 Gift/Pledge of $10,000,000" },
+          { received: 0, needed: 1, label: "1 Gift/Pledge of $5,000,000" },
+          { received: 0, needed: 2, label: "2 Gifts/Pledges of $2,500,000" },
+          { received: 0, needed: 10, label: "10 Gifts/Pledges of $1,000,000" },
+          { received: 0, needed: 14, label: "14 Gifts/Pledges of $500,000" },
+          { received: 0, needed: 20, label: "20 Gifts/Pledges of $250,000" },
+          { received: 0, needed: 50, label: "50 Gifts/Pledges of $100,000" },
+          { received: 0, needed: 100, label: "100 Gifts/Pledges of $50,000" }
+        ]
+      };
+
+      loadStateIntoDOM(defaultState);
+    });
 </script>
 </body>
 </html>
