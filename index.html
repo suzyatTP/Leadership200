@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Leadership 200 – Scale of Gifts</title>
+  <title>Leadership 200</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     :root {
@@ -544,32 +544,59 @@
       white-space: nowrap;
     }
 
-    @media (max-width: 960px) {
-      body {
-        padding: 0;
-      }
-      .page {
-        border-radius: 0;
-      }
-      .top-strip {
-        padding: 10px 24px;
-      }
-      .pyramid-section {
-        padding: 24px 24px 180px;
-      }
-      .summary {
-        padding: 10px 24px 18px;
-      }
-      .level-row {
-        grid-template-columns: minmax(0, 1fr) 24px;
-      }
-      .row-labels-right {
-        margin-right: 0;
-      }
-      .gift-section {
-        padding: 10px 16px 22px;
-      }
-    }
+    @media (max-width: 600px) {
+  .pyramid-section {
+    padding: 16px 10px 140px;
+  }
+
+  .triangle-total {
+    padding-top: 10px;
+  }
+
+  .triangle-total-amount {
+    font-size: 22px;
+  }
+
+  /* Stack the two labels so they don't collide with the bars */
+  .row-labels {
+    margin-top: 150px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    padding: 0 6px 4px;
+    font-size: 11px;
+  }
+
+  .row-labels-left,
+  .row-labels-right {
+    margin-right: 0;
+    text-align: left;
+  }
+
+  /* Slightly shorter rows so everything feels less cramped */
+  .rows {
+    gap: 4px;
+  }
+
+  .bar-wrapper {
+    height: 28px;
+  }
+
+  .bar-label input {
+    font-size: 12px;
+  }
+
+  .fraction-pill {
+    padding: 2px 6px;
+    font-size: 11px;
+  }
+
+  .right-amount {
+    min-width: 80px;
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  }
   </style>
 </head>
 <body>
