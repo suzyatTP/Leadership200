@@ -865,8 +865,8 @@
   row.dataset.rowId = String(rowCounter);
 
   const received = defaults.received ?? "";
-  const needed = defaults.needed ?? "";
-  const label = defaults.label ?? "";
+  const needed   = defaults.needed ?? "";
+  const label    = defaults.label ?? "";
 
   row.innerHTML = `
     <div class="level-middle">
@@ -902,20 +902,42 @@
   const upBtn         = row.querySelector(".qty-up");
   const downBtn       = row.querySelector(".qty-down");
 
-  // typing directly
-  [receivedInput, neededInput, labelInput].forEach((inp) => {
-    inp.addEventListener("input", recalcAll);
+  // track previous value so we know how many NEW gifts were added
+  receivedInput.dataset.prev = received || 0;
+
+  // when the received number changes (by typing OR by +/- buttons)
+  receivedInput.addEventListener("input", (e) => {
+    const input   = e.target;
+    const prev    = parseNumber(input.dataset.prev || "0");
+    const current = parseNumber(input.value);
+
+    // store new value
+    input.dataset.prev = current;
+
+    // if it increased, we need to capture gift details
+    if (current > prev) {
+      const added = current - prev;
+      const labelValue = labelInput.value;
+      const giftAmount = extractGiftAmountFromLabel(labelValue);
+      addGiftsForIncrease(added, giftAmount);
+    }
+
+    recalcAll();
   });
 
-  // click + to increase "received"
+  // needed + label just trigger recalculation
+  neededInput.addEventListener("input", recalcAll);
+  labelInput.addEventListener("input", recalcAll);
+
+  // click + to bump received up by 1 (and fire the same input logic)
   upBtn.addEventListener("click", () => {
     const current = parseNumber(receivedInput.value);
-    receivedInput.value = current + 1;
-    // make it behave exactly like typing
+    const next = current + 1;
+    receivedInput.value = next;
     receivedInput.dispatchEvent(new Event("input", { bubbles: true }));
   });
 
-  // click − to decrease "received" (not below 0)
+  // click − to decrease received (not below 0)
   downBtn.addEventListener("click", () => {
     const current = parseNumber(receivedInput.value);
     const next = Math.max(0, current - 1);
