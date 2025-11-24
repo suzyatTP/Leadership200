@@ -453,6 +453,35 @@
       font-family: "Georgia", "Times New Roman", serif;
     }
 
+    .qty-btn {
+  border: none;
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  margin: 0 3px;
+}
+
+.qty-btn:hover {
+  background: rgba(255, 255, 255, 0.32);
+}
+
+.qty-down {
+  margin-right: 4px;
+}
+
+.qty-up {
+  margin-left: 4px;
+}
+
     /* INDIVIDUAL GIFTS SECTION ----------------------------------- */
 
     .gift-section {
@@ -830,75 +859,78 @@
   let gifts = [];
 
   function addRow(defaults = {}) {
-    rowCounter++;
-    const row = document.createElement("div");
-    row.className = "level-row";
-    row.dataset.rowId = String(rowCounter);
+  rowCounter++;
+  const row = document.createElement("div");
+  row.className = "level-row";
+  row.dataset.rowId = String(rowCounter);
 
-    const received = defaults.received ?? "";
-    const needed = defaults.needed ?? "";
-    const label = defaults.label ?? "";
+  const received = defaults.received ?? "";
+  const needed = defaults.needed ?? "";
+  const label = defaults.label ?? "";
 
-    row.innerHTML = `
-      <div class="level-middle">
-        <div class="bar-wrapper">
-          <div class="bar-fill"></div>
+  row.innerHTML = `
+    <div class="level-middle">
+      <div class="bar-wrapper">
+        <div class="bar-fill"></div>
 
-          <div class="fraction-pill">
-            <input type="number" min="0" class="received-input" value="${received}">
-            <span class="slash">/</span>
-            <input type="number" min="0" class="needed-input" value="${needed}">
-          </div>
-
-          <div class="bar-label">
-            <input type="text" class="label-input" value="${label}"
-                   placeholder="1 Gift of $25,000,000">
-          </div>
-
-          <div class="right-amount level-received">$0</div>
+        <div class="fraction-pill">
+          <button type="button" class="qty-btn qty-down">−</button>
+          <input type="number" min="0" class="received-input" value="${received}">
+          <span class="slash">/</span>
+          <input type="number" min="0" class="needed-input" value="${needed}">
+          <button type="button" class="qty-btn qty-up">+</button>
         </div>
+
+        <div class="bar-label">
+          <input type="text" class="label-input" value="${label}"
+                 placeholder="1 Gift of $25,000,000">
+        </div>
+
+        <div class="right-amount level-received">$0</div>
       </div>
+    </div>
 
-      <div class="level-right">
-        <button class="delete-btn" type="button" title="Remove row">&times;</button>
-      </div>
-    `;
+    <div class="level-right">
+      <button class="delete-btn" type="button" title="Remove row">&times;</button>
+    </div>
+  `;
 
-    const receivedInput = row.querySelector(".received-input");
-    const neededInput = row.querySelector(".needed-input");
-    const labelInput = row.querySelector(".label-input");
-    const deleteBtn = row.querySelector(".delete-btn");
+  const receivedInput = row.querySelector(".received-input");
+  const neededInput   = row.querySelector(".needed-input");
+  const labelInput    = row.querySelector(".label-input");
+  const deleteBtn     = row.querySelector(".delete-btn");
+  const upBtn         = row.querySelector(".qty-up");
+  const downBtn       = row.querySelector(".qty-down");
 
-    // Track previous received count so we know when it increases
-    receivedInput.dataset.prev = received || 0;
+  // typing directly
+  [receivedInput, neededInput, labelInput].forEach((inp) => {
+    inp.addEventListener("input", recalcAll);
+  });
 
-    receivedInput.addEventListener("input", (e) => {
-      const input = e.target;
-      const prev = parseNumber(input.dataset.prev || "0");
-      const current = parseNumber(input.value);
+  // click + to increase "received"
+  upBtn.addEventListener("click", () => {
+    const current = parseNumber(receivedInput.value);
+    receivedInput.value = current + 1;
+    // make it behave exactly like typing
+    receivedInput.dispatchEvent(new Event("input", { bubbles: true }));
+  });
 
-      input.dataset.prev = current;
+  // click − to decrease "received" (not below 0)
+  downBtn.addEventListener("click", () => {
+    const current = parseNumber(receivedInput.value);
+    const next = Math.max(0, current - 1);
+    receivedInput.value = next;
+    receivedInput.dispatchEvent(new Event("input", { bubbles: true }));
+  });
 
-      if (current > prev) {
-        const added = current - prev;
-        const giftAmount = extractGiftAmountFromLabel(labelInput.value);
-        addGiftsForIncrease(added, giftAmount);
-      }
-
-      recalcAll();
-    });
-
-    neededInput.addEventListener("input", recalcAll);
-    labelInput.addEventListener("input", recalcAll);
-
-    deleteBtn.addEventListener("click", () => {
-      row.remove();
-      recalcAll();
-    });
-
-    rowsContainer.appendChild(row);
+  deleteBtn.addEventListener("click", () => {
+    row.remove();
     recalcAll();
-  }
+  });
+
+  rowsContainer.appendChild(row);
+  recalcAll();
+}
 
   function recalcAll() {
     const rows = Array.from(rowsContainer.querySelectorAll(".level-row"));
