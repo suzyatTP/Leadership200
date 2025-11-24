@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Leadership 200 – Scale of Gifts</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --blue: #0047b5;
+      --blue-dark: #00308b;
+      --red: #c6001a;
+      --bg: #ffffff;
+      --card: #ffffff;
+      --text-main: #222222;
+      --text-soft: #444444;
+      --shadow-soft: 0 16px 40px rgba(15, 23, 42, 0.2);
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: "Georgia", "Times New Roman", serif;
+    }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      background: radial-gradient(circle at top, #f2f4fb, #f9f6f1 55%, #f3efe9);
+      color: var(--text-main);
+    }
+
+    .page {
+      max-width: 1360px;
+      margin: 0 auto;
+      background: var(--card);
+      border-radius: 18px;
+      box-shadow: var(--shadow-soft);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      overflow: hidden;
+    }
+
+    /* HEADER -------------------------------------------------------- */
+
+    .header {
+      text-align: center;
+      padding: 18px 26px 12px;
+    }
+
+    .header-line-1 {
+      font-size: 11px;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: #444;
+    }
+
+    .header-title {
+      margin: 6px 0 4px;
+      font-size: 44px;
+      letter-spacing: 0.18em;
+      color: #9f1515;
+    }
+
+    .header-subtitle {
+      font-size: 15px;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      color: #444;
+      margin-bottom: 2px;
+    }
+
+    .header-tagline {
+      font-size: 11px;
+      font-style: italic;
+      color: #555;
+    }
+
+    /* TOP STRIP ----------------------------------------------------- */
+
+    .top-strip {
+      display: flex;
+      justify-content: flex-end;
+      align-items: stretch;
+      padding: 10px 70px 10px;
+      border-top: 1px solid rgba(0, 0, 0, 0.06);
+      border-bottom: 1px solid rgba(0, 0, 0, 0.09);
+      background: linear-gradient(to bottom, #fbf7f2, #f3ede5);
+      font-size: 12px;
+    }
+
+    .top-strip-box {
+      text-align: right;
+    }
+
+    .top-strip-label {
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #222;
+    }
+
+    .top-strip-amount {
+      display: inline-block;
+      margin-top: 4px;
+      padding: 8px 20px;
+      background: var(--blue-dark);
+      color: #ffffff;
+      border-radius: 4px;
+      font-size: 20px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* PYRAMID AREA -------------------------------------------------- */
+
+    .pyramid-section {
+      position: relative;
+      padding: 26px 70px 190px;
+      overflow: hidden;
+      align-items: center;
+    }
+
+    .big-triangle {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      top: 30px;
+      width: 100%;
+      height: 620px;
+      background: linear-gradient(
+        to bottom,
+        #d5ecff 0%,
+        #d5ecff 55%,
+        #e3f3ff 82%,
+        #edf8ff 100%
+      );
+      clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+      opacity: 1;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .triangle-total {
+      position: absolute;
+      top: 120px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      z-index: 1;
+      color: #000;
+    }
+
+    .triangle-total-label {
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .triangle-total-amount {
+      margin-top: 3px;
+      font-size: 28px;
+      font-weight: bold;
+    }
+
+    .triangle-bottom-banner {
+      position: absolute;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1;
+      background: #00308b;
+      color: #ffffff;
+      padding: 9px 26px;
+      font-size: 15px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .row-labels {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      font-size: 13px;
+      margin-top: 135px;
+      margin-bottom: 8px;
+      padding: 0 0 0px;
+    }
+
+    .row-labels-left {
+      font-style: italic;
+    }
+
+    .row-labels-right {
+      margin-right: 30px;
+      font-style: italic;
+    }
+
+    /* LEVEL ROWS ---------------------------------------------------- */
+
+    .rows {
+      position: relative;
+      z-index: 1;
+    }
+
+    .level-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 24px;
+      align-items: center;
+      gap: 0;
+      margin-bottom: 8px;
+    }
+
+    /* 0/1 COUNTER (OVER BAR) --------------------------------------- */
+
+    .fraction-pill {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      z-index: 5;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0px;
+      padding: 2px 6px 1px;
+      background: transparent;
+      border-radius: 0;
+      color: #ffffff;
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+      pointer-events: auto;
+    }
+
+    .fraction-pill.has-received {
+      background: transparent;
+      color: #ffffff;
+    }
+
+    .fraction-pill input {
+      width: 22px;
+      border: none;
+      background: transparent;
+      color: inherit;
+      text-align: left;
+      font-size: 13px;
+      padding: 0;
+      margin: 0;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .fraction-pill span.slash {
+      font-size: 11px;
+    }
+
+    .fraction-pill input:focus {
+      outline: none;
+    }
+
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type="number"] {
+      -moz-appearance: textfield;
+    }
+
+    /* CENTER BAR --------------------------------------------------- */
+
+    .bar-wrapper {
+      position: relative;
+      height: 32px;
+      background: none;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      border-radius: 0;
+    }
+
+    .bar-fill {
+      position: absolute;
+      left: 0;
+      top: 0;
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(
+        to right,
+        rgba(198, 0, 26, 0.95) 0%,
+        rgba(255, 146, 146, 0.95) 0%,
+        rgba(255, 146, 146, 0) 0%
+      );
+      transition: width 0.18s ease;
+      z-index: 0;
+    }
+
+    .bar-label {
+      position: relative;
+      z-index: 1;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 0 0px;
+      font-size: 13px;
+      color: #0b2f5b;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-align: center;
+    }
+
+    .bar-label input {
+      width: 100%;
+      border: none;
+      background: transparent;
+      font-size: 13px;
+      text-align: center;
+      color: inherit;
+      padding: 0;
+      margin: 0;
+    }
+
+    .bar-label input:focus {
+      outline: none;
+    }
+
+    /* RIGHT AMOUNT (OVER BAR) -------------------------------------- */
+
+    .right-amount {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 18px;
+      min-width: 90px;
+      background: transparent;
+      color: #ffffff;
+      font-size: 13px;
+      font-variant-numeric: tabular-nums;
+      z-index: 2;
+    }
+
+    /* DELETE BUTTON COLUMN ----------------------------------------- */
+
+    .level-right {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .delete-btn {
+      border: none;
+      background: transparent;
+      color: #b91c1c;
+      font-size: 14px;
+      cursor: pointer;
+      padding: 0 0 0 4px;
+      line-height: 1;
+    }
+
+    .delete-btn:hover {
+      color: #7f1010;
+    }
+
+    .add-row-btn {
+      margin-top: 8px;
+      font-size: 11px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      border: 1px solid #d8cfc5;
+      background: #f7f1e6;
+      cursor: pointer;
+    }
+
+    .add-row-btn:hover {
+      background: #f0e3d4;
+    }
+
+    /* SUMMARY ------------------------------------------------------ */
+
+    .summary {
+      padding: 10px 70px 18px;
+      border-top: 1px solid rgba(0, 0, 0, 0.06);
+      background: #f7f2ea;
+      font-size: 12px;
+    }
+
+    .summary-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .summary-left {
+      min-width: 260px;
+    }
+
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .summary-row span.label {
+      color: var(--text-soft);
+    }
+
+    .summary-row span.value {
+      font-variant-numeric: tabular-nums;
+    }
+
+    .summary-progress-outer {
+      margin-top: 6px;
+      height: 8px;
+      border-radius: 999px;
+      background: #e0d5c6;
+      overflow: hidden;
+    }
+
+    .summary-progress-inner {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--blue-dark), #00a4e8);
+      transition: width 0.18s ease;
+    }
+
+    .summary-right {
+      display: flex;
+      gap: 16px;
+      align-items: flex-end;
+    }
+
+    .summary-field {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--text-soft);
+    }
+
+    .summary-field input {
+      margin-top: 3px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      border: 1px solid #d0c4b5;
+      background: #fbf7f2;
+      font-size: 12px;
+      width: 190px;
+      font-family: "Georgia", "Times New Roman", serif;
+    }
+
+    /* INDIVIDUAL GIFTS SECTION ----------------------------------- */
+
+    .gift-section {
+      padding: 10px 70px 24px;
+      border-top: 1px solid rgba(0, 0, 0, 0.08);
+      background: #f8f2ea;
+      font-size: 13px;
+    }
+
+    .gift-delete:hover {
+  color: #7f1010 !important;
+    }
+
+    .gift-section-header {
+      margin-bottom: 8px;
+    }
+
+    .gift-section-title {
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #8b1b1b;
+      margin-bottom: 4px;
+    }
+
+    .gift-section-subtitle {
+      font-size: 11px;
+      color: #5e5550;
+      max-width: 620px;
+    }
+
+    .gift-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .gift-table th,
+    .gift-table td {
+      padding: 5px 8px;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .gift-table th {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: #7a6d64;
+    }
+
+    .gift-table td:nth-child(1) {
+      width: 40px;
+      color: #7a6d64;
+    }
+
+    .gift-table td:nth-child(4) {
+      white-space: nowrap;
+    }
+
+    @media (max-width: 960px) {
+      body {
+        padding: 0;
+      }
+      .page {
+        border-radius: 0;
+      }
+      .top-strip {
+        padding: 10px 24px;
+      }
+      .pyramid-section {
+        padding: 24px 24px 180px;
+      }
+      .summary {
+        padding: 10px 24px 18px;
+      }
+      .level-row {
+        grid-template-columns: minmax(0, 1fr) 24px;
+      }
+      .row-labels-right {
+        margin-right: 0;
+      }
+      .gift-section {
+        padding: 10px 16px 22px;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <div class="header-line-1">TURNING POINT WITH DR. DAVID JEREMIAH</div>
+    <div class="header-title" id="headerTitle">LEADERSHIP 200</div>
+    <div class="header-subtitle">ACCELERATE YOUR VISION</div>
+    <div class="header-tagline">
+      Delivering the Unchanging Word of God to an Ever-Changing World
+    </div>
+  </div>
+
+  <div class="top-strip">
+    <div class="top-strip-box">
+      <div class="top-strip-label">TOTAL RECEIVED TO DATE</div>
+      <div class="top-strip-amount" id="grandReceived">$0</div>
+    </div>
+  </div>
+
+  <div class="pyramid-section">
+    <div class="big-triangle"></div>
+
+    <div class="triangle-total">
+      <div class="triangle-total-label">TOTAL</div>
+      <div class="triangle-total-amount" id="triangleTotalAmount">$0</div>
+    </div>
+
+    <div class="triangle-bottom-banner" id="bottomBanner">
+      200 LEADERSHIP GIFTS/PLEDGES
+    </div>
+
+    <div class="row-labels">
+      <div class="row-labels-left">Gifts Received/Needed</div>
+      <div class="row-labels-right">Total Gift/Pledge Dollars Committed</div>
+    </div>
+
+    <div class="rows" id="rowsContainer">
+      <!-- rows injected by JS -->
+    </div>
+    <button class="add-row-btn" id="addRowBtn">+ Add Level</button>
+  </div>
+
+  <div class="summary">
+    <div class="summary-grid">
+      <div class="summary-left">
+        <div class="summary-row">
+          <span class="label">Planned from all levels</span>
+          <span class="value" id="plannedTotal">$0</span>
+        </div>
+        <div class="summary-row">
+          <span class="label">Campaign goal</span>
+          <span class="value" id="goalDisplaySmall">$0</span>
+        </div>
+        <div class="summary-row">
+          <span class="label">Variance</span>
+          <span class="value" id="varianceDisplay">$0</span>
+        </div>
+        <div class="summary-progress-outer">
+          <div class="summary-progress-inner" id="summaryProgress"></div>
+        </div>
+      </div>
+
+      <div class="summary-right">
+        <div class="summary-field">
+          Campaign Goal ($)
+          <input type="number" id="goalInput" placeholder="100000000" />
+        </div>
+        <div class="summary-field">
+          Title
+          <input type="text" id="titleInput" placeholder="Leadership 200" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INDIVIDUAL GIFTS SECTION -->
+  <div class="gift-section">
+    <div class="gift-section-header">
+      <div class="gift-section-title">INDIVIDUAL GIFTS</div>
+      <div class="gift-section-subtitle">
+        Each time you increase “Gifts Received” in a level, you’ll be asked to
+        enter details for that specific gift. Gifts below are sorted by amount,
+        highest to lowest.
+      </div>
+    </div>
+
+    <table class="gift-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Donor Name</th>
+          <th>ID Number</th>
+          <th>Gift Amount</th>
+          <th>Gift Purpose</th>
+          <th></th> 
+        </tr>
+      </thead>
+      <tbody id="giftsTbody">
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  function parseNumber(raw) {
+    if (raw === null || raw === undefined) return 0;
+    if (typeof raw !== "string") raw = String(raw);
+    const cleaned = raw.replace(/[^\d.\-]/g, "");
+    const n = parseFloat(cleaned);
+    return isNaN(n) ? 0 : n;
+  }
+
+  function formatCurrency(n) {
+    n = Number(n) || 0;
+    return "$" + n.toLocaleString("en-US", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
+  }
+
+  function extractGiftAmountFromLabel(label) {
+    if (!label) return 0;
+    const match = label.match(/\$([\d,]+(\.\d+)?)/);
+    if (!match) return 0;
+    return parseNumber(match[1]);
+  }
+
+  function extractGiftAmountFromLabel(label) {
+    if (!label) return 0;
+    const match = label.match(/\$([\d,]+(\.\d+)?)/);
+    if (!match) return 0;
+    return parseNumber(match[1]);
+  }
+
+  /* ------- INDIVIDUAL GIFTS HELPERS ------- */
+
+  function renderGifts() {
+  // Sort gifts by amount, highest to lowest
+  gifts.sort((a, b) => (b.amount || 0) - (a.amount || 0));
+
+  giftsTbody.innerHTML = "";
+
+  gifts.forEach((g, index) => {
+    const tr = document.createElement("tr");
+
+    tr.innerHTML = `
+      <td>${index + 1}</td>
+      <td>${g.name || ""}</td>
+      <td>${g.id || ""}</td>
+      <td>${formatCurrency(g.amount || 0)}</td>
+      <td>${g.purpose || ""}</td>
+      <td>
+        <button class="gift-delete" data-index="${index}" style="
+          border: none;
+          background: transparent;
+          color: #b91c1c;
+          font-size: 16px;
+          cursor: pointer;
+        ">&times;</button>
+      </td>
+    `;
+
+    giftsTbody.appendChild(tr);
+  });
+
+  // Attach delete handlers
+  document.querySelectorAll(".gift-delete").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx = parseInt(btn.dataset.index);
+      gifts.splice(idx, 1);     // remove gift
+      renderGifts();            // rerender
+      saveState();              // persist
+    });
+  });
+}
+
+  function promptForGiftDetails(defaultAmount) {
+    const name = window.prompt("Donor name for this gift? (Required)");
+    if (name === null || name.trim() === "") return null;
+
+    const id = window.prompt("ID number (optional):") || "";
+
+    const defaultAmountPlain = defaultAmount ? String(defaultAmount) : "";
+    const amountStr = window.prompt(
+      "Gift amount for this gift (numbers only):",
+      defaultAmountPlain
+    );
+
+    let amount = defaultAmount || 0;
+    if (amountStr !== null && amountStr.trim() !== "") {
+      amount = parseNumber(amountStr);
+    }
+
+    const purpose = window.prompt("Gift purpose (optional):") || "";
+
+    return {
+      name: name.trim(),
+      id: id.trim(),
+      amount,
+      purpose: purpose.trim(),
+    };
+  }
+
+  function addGiftsForIncrease(addedCount, defaultAmount) {
+    for (let i = 0; i < addedCount; i++) {
+      const gift = promptForGiftDetails(defaultAmount);
+      if (!gift) break;
+      gifts.push(gift);
+    }
+    renderGifts();
+    saveState();
+  }
+
+  // ---------- STATE HELPERS ----------
+
+  function getStateFromDOM() {
+    const rows = Array.from(rowsContainer.querySelectorAll(".level-row")).map(
+      (row) => {
+        const receivedInput = row.querySelector(".received-input");
+        const neededInput = row.querySelector(".needed-input");
+        const labelInput = row.querySelector(".label-input");
+        return {
+          received: parseNumber(receivedInput.value),
+          needed: parseNumber(neededInput.value),
+          label: labelInput.value || "",
+        };
+      }
+    );
+
+    return {
+      goal: parseNumber(goalInput.value),
+      title: headerTitleEl.textContent || "Leadership 200",
+      rows,
+      gifts,
+    };
+  }
+
+  function loadStateIntoDOM(state) {
+    rowsContainer.innerHTML = "";
+    rowCounter = 0;
+
+    goalInput.value = state.goal || "";
+    headerTitleEl.textContent = state.title || "LEADERSHIP 200";
+
+    (state.rows || []).forEach((r) => {
+      addRow({
+        received: r.received,
+        needed: r.needed,
+        label: r.label,
+      });
+    });
+
+    gifts = Array.isArray(state.gifts) ? state.gifts.slice() : [];
+    renderGifts();
+
+    recalcAll();
+  }
+
+  function saveState() {
+    const state = getStateFromDOM();
+    fetch("/api/state", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(state),
+    }).catch((err) => {
+      console.error("Failed to save state", err);
+    });
+  }
+
+  const rowsContainer = document.getElementById("rowsContainer");
+  const addRowBtn = document.getElementById("addRowBtn");
+  const goalInput = document.getElementById("goalInput");
+  const titleInput = document.getElementById("titleInput");
+  const headerTitleEl = document.getElementById("headerTitle");
+
+  const plannedTotalEl = document.getElementById("plannedTotal");
+  const goalDisplaySmallEl = document.getElementById("goalDisplaySmall");
+  const varianceDisplayEl = document.getElementById("varianceDisplay");
+  const summaryProgressEl = document.getElementById("summaryProgress");
+  const grandReceivedEl = document.getElementById("grandReceived");
+  const triangleTotalAmountEl = document.getElementById("triangleTotalAmount");
+  const bottomBannerEl = document.getElementById("bottomBanner");
+  const giftsTbody = document.getElementById("giftsTbody");
+
+  let rowCounter = 0;
+  let gifts = [];
+
+  function addRow(defaults = {}) {
+    rowCounter++;
+    const row = document.createElement("div");
+    row.className = "level-row";
+    row.dataset.rowId = String(rowCounter);
+
+    const received = defaults.received ?? "";
+    const needed = defaults.needed ?? "";
+    const label = defaults.label ?? "";
+
+    row.innerHTML = `
+      <div class="level-middle">
+        <div class="bar-wrapper">
+          <div class="bar-fill"></div>
+
+          <div class="fraction-pill">
+            <input type="number" min="0" class="received-input" value="${received}">
+            <span class="slash">/</span>
+            <input type="number" min="0" class="needed-input" value="${needed}">
+          </div>
+
+          <div class="bar-label">
+            <input type="text" class="label-input" value="${label}"
+                   placeholder="1 Gift of $25,000,000">
+          </div>
+
+          <div class="right-amount level-received">$0</div>
+        </div>
+      </div>
+
+      <div class="level-right">
+        <button class="delete-btn" type="button" title="Remove row">&times;</button>
+      </div>
+    `;
+
+    const receivedInput = row.querySelector(".received-input");
+    const neededInput = row.querySelector(".needed-input");
+    const labelInput = row.querySelector(".label-input");
+    const deleteBtn = row.querySelector(".delete-btn");
+
+    // Track previous received count so we know when it increases
+    receivedInput.dataset.prev = received || 0;
+
+    receivedInput.addEventListener("input", (e) => {
+      const input = e.target;
+      const prev = parseNumber(input.dataset.prev || "0");
+      const current = parseNumber(input.value);
+
+      input.dataset.prev = current;
+
+      if (current > prev) {
+        const added = current - prev;
+        const giftAmount = extractGiftAmountFromLabel(labelInput.value);
+        addGiftsForIncrease(added, giftAmount);
+      }
+
+      recalcAll();
+    });
+
+    neededInput.addEventListener("input", recalcAll);
+    labelInput.addEventListener("input", recalcAll);
+
+    deleteBtn.addEventListener("click", () => {
+      row.remove();
+      recalcAll();
+    });
+
+    rowsContainer.appendChild(row);
+    recalcAll();
+  }
+
+  function recalcAll() {
+    const rows = Array.from(rowsContainer.querySelectorAll(".level-row"));
+    let plannedTotal = 0;
+    let receivedTotal = 0;
+    let totalNeeded = 0;
+
+    rows.forEach((row) => {
+      const receivedInput = row.querySelector(".received-input");
+      const neededInput = row.querySelector(".needed-input");
+      const labelInput = row.querySelector(".label-input");
+      const barFill = row.querySelector(".bar-fill");
+      const fractionPill = row.querySelector(".fraction-pill");
+      const levelReceivedBox = row.querySelector(".level-received");
+
+      const received = parseNumber(receivedInput.value);
+      const needed = parseNumber(neededInput.value);
+      const giftAmount = extractGiftAmountFromLabel(labelInput.value);
+
+      const levelGoal = giftAmount * needed;
+      const levelReceived = giftAmount * received;
+
+      plannedTotal += levelGoal;
+      receivedTotal += levelReceived;
+      totalNeeded += needed;
+
+      let pct = 0;
+      if (needed > 0) pct = Math.max(0, Math.min(1, received / needed));
+      barFill.style.width = pct * 100 + "%";
+
+      if (received > 0) {
+        fractionPill.classList.add("has-received");
+      } else {
+        fractionPill.classList.remove("has-received");
+      }
+
+      levelReceivedBox.textContent = formatCurrency(levelReceived);
+    });
+
+    /* Alternating gradients for bars to mimic template */
+    rows.forEach((row, index) => {
+      const barWrapper = row.querySelector(".bar-wrapper");
+
+      if (index % 2 === 0) {
+        barWrapper.style.background =
+          "linear-gradient(to right," +
+          " #0047b5 0%," +
+          " #4f7fd6 18%," +
+          " #ffffff 50%," +
+          " #4f7fd6 82%," +
+          " #0047b5 100%)";
+      } else {
+        barWrapper.style.background =
+          "linear-gradient(to right," +
+          " #c6001a 0%," +
+          " #ff7a7a 18%," +
+          " #ffffff 50%," +
+          " #ff7a7a 82%," +
+          " #c6001a 100%)";
+      }
+    });
+
+    plannedTotalEl.textContent = formatCurrency(plannedTotal);
+    triangleTotalAmountEl.textContent = formatCurrency(plannedTotal);
+
+    const goal = parseNumber(goalInput.value);
+    if (goal > 0) {
+      goalDisplaySmallEl.textContent = formatCurrency(goal);
+      const variance = plannedTotal - goal;
+      const sign = variance === 0 ? "" : variance > 0 ? "+ " : "- ";
+      varianceDisplayEl.textContent =
+        variance === 0
+          ? "On goal"
+          : sign + formatCurrency(Math.abs(variance));
+
+      const pctGoal = Math.max(0, Math.min(1, receivedTotal / goal));
+      summaryProgressEl.style.width = pctGoal * 100 + "%";
+    } else {
+      goalDisplaySmallEl.textContent = "$0";
+      varianceDisplayEl.textContent = "—";
+      summaryProgressEl.style.width = "0%";
+    }
+
+    grandReceivedEl.textContent = formatCurrency(receivedTotal);
+
+    const giftsText =
+      totalNeeded > 0
+        ? totalNeeded.toLocaleString("en-US") + " LEADERSHIP GIFTS/PLEDGES"
+        : "0 LEADERSHIP GIFTS/PLEDGES";
+    bottomBannerEl.textContent = giftsText;
+
+    saveState();
+  }
+
+  goalInput.addEventListener("input", recalcAll);
+  titleInput.addEventListener("input", () => {
+    headerTitleEl.textContent = titleInput.value || "LEADERSHIP 200";
+  });
+
+  addRowBtn.addEventListener("click", () => addRow());
+
+  fetch("/api/state")
+    .then((res) => res.json())
+    .then((state) => {
+      loadStateIntoDOM(state);
+    })
+    .catch((err) => {
+      console.error("Failed to load state, falling back to defaults", err);
+
+      const defaultState = {
+        goal: 100000000,
+        title: "LEADERSHIP 200",
+        rows: [
+          { received: 0, needed: 1, label: "1 Gift of $25,000,000" },
+          { received: 0, needed: 1, label: "1 Gift/Pledge of $20,000,000" },
+          { received: 1, needed: 1, label: "1 Gift/Pledge of $10,000,000" },
+          { received: 0, needed: 1, label: "1 Gift/Pledge of $5,000,000" },
+          { received: 0, needed: 2, label: "2 Gifts/Pledges of $2,500,000" },
+          { received: 0, needed: 10, label: "10 Gifts/Pledges of $1,000,000" },
+          { received: 0, needed: 14, label: "14 Gifts/Pledges of $500,000" },
+          { received: 0, needed: 20, label: "20 Gifts/Pledges of $250,000" },
+          { received: 0, needed: 50, label: "50 Gifts/Pledges of $100,000" },
+          { received: 0, needed: 100, label: "100 Gifts/Pledges of $50,000" },
+        ],
+        gifts: [],
+      };
+
+      loadStateIntoDOM(defaultState);
+    });
+</script>
+</body>
+</html>

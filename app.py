@@ -56,6 +56,7 @@ def default_state():
             {"received": 0, "needed": 50, "label": "50 Gifts/Pledges of $100,000"},
             {"received": 0, "needed": 100, "label": "100 Gifts/Pledges of $50,000"},
         ],
+        "gifts": []   # ⭐ ADD THIS LINE TO ENABLE INDIVIDUAL GIFTS STORAGE
     }
 
 
