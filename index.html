@@ -827,6 +827,19 @@
       }
     );
 
+    function saveState() {
+  const state = getStateFromDOM();
+
+  fetch("/api/state", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(state),
+  }).catch((err) => {
+    console.error("Failed to save state", err);
+  });
+}
+
     return {
       goal: parseNumber(goalInput.value),
       title: headerTitleEl.textContent || "Leadership 200",
@@ -855,16 +868,6 @@
 
     recalcAll();
   }
-
-  fetch("/api/state", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  credentials: "include",
-  body: JSON.stringify(state),
-})
-.catch((err) => {
-  console.error("Failed to save state", err);
-});
 
   const rowsContainer = document.getElementById("rowsContainer");
   const addRowBtn = document.getElementById("addRowBtn");
