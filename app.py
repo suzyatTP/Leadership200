@@ -105,36 +105,57 @@ def get_state():
     conn.close()
     return jsonify(state)
 
+def merge_state_with_template(incoming):
+    """
+    Keep the template rows (labels + needed) constant,
+    only allow 'received' + gifts (and optional goal/title) to change.
+    """
+    base = default_state()
+
+    if not incoming:
+        return base
+
+    # If you want to allow these to change, keep this:
+    base["goal"] = incoming.get("goal", base["goal"])
+    base["title"] = incoming.get("title", base["title"])
+
+    incoming_rows = incoming.get("rows") or []
+
+    for i, row in enumerate(base["rows"]):
+        if i < len(incoming_rows):
+            inc = incoming_rows[i] or {}
+            # ONLY copy the received count from the incoming state
+            if "received" in inc:
+                row["received"] = inc["received"]
+            # We intentionally ignore incoming 'label' and 'needed'
+            # so those stay locked to the template.
+
+    # Gifts list can be fully editable
+    base["gifts"] = incoming.get("gifts", base["gifts"])
+
+    return base
 
 @app.route("/api/state", methods=["POST"])
 def save_state():
-    data = request.get_json() or {}
+    try:
+        incoming = request.get_json()
 
-    conn = get_conn()
-    cur = conn.cursor()
+        # Lock rows to template, only update received + gifts (+ goal/title)
+        merged_state = merge_state_with_template(incoming)
 
-    # Update the main row
-    cur.execute(
-        """
-        UPDATE leadership_state
-           SET state_json = %s,
-               updated_at = NOW()
-         WHERE id = (SELECT id FROM leadership_state ORDER BY id LIMIT 1);
-        """,
-        (json.dumps(data),),
-    )
-
-    if cur.rowcount == 0:
+        conn = get_conn()
+        cur = conn.cursor()
         cur.execute(
-            "INSERT INTO leadership_state (state_json) VALUES (%s);",
-            (json.dumps(data),),
+            "UPDATE leadership_state SET state_json = %s, updated_at = NOW() WHERE id = 1",
+            [json.dumps(merged_state)],
         )
-
-    conn.commit()
-    cur.close()
-    conn.close()
-
-    return jsonify({"status": "ok"})
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        print("ERROR saving state:", e)
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/debug-db")
 def debug_db():
