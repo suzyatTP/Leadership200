@@ -3,7 +3,7 @@ import json
 from flask import Flask, send_from_directory, request, jsonify
 import psycopg2
 
-# Use Render's DATABASE_URL
+# Render gives you this via the Environment variable
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 
@@ -13,34 +13,8 @@ def get_conn():
     return psycopg2.connect(DATABASE_URL, sslmode="require")
 
 
-def ensure_table():
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute(
-        """
-        CREATE TABLE IF NOT EXISTS leadership_state (
-            id SERIAL PRIMARY KEY,
-            state_json JSONB NOT NULL,
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-        );
-        """
-    )
-    conn.commit()
-    cur.close()
-    conn.close()
-
-
-ensure_table()
-
-app = Flask(__name__, static_folder="static", static_url_path="")
-
-
-@app.route("/")
-def index():
-    return send_from_directory(app.static_folder, "index.html")
-
-
 def default_state():
+    """Initial template used if DB is empty."""
     return {
         "goal": 100000000,
         "title": "LEADERSHIP 200",
@@ -56,8 +30,51 @@ def default_state():
             {"received": 0, "needed": 50, "label": "50 Gifts/Pledges of $100,000"},
             {"received": 0, "needed": 100, "label": "100 Gifts/Pledges of $50,000"},
         ],
-        "gifts": []   # ⭐ ADD THIS LINE TO ENABLE INDIVIDUAL GIFTS STORAGE
+        "gifts": [],
     }
+
+
+def ensure_table():
+    """Create leadership_state table and make sure there is one row."""
+    conn = get_conn()
+    cur = conn.cursor()
+
+    # 1) Make sure table exists
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS leadership_state (
+            id SERIAL PRIMARY KEY,
+            state_json JSONB NOT NULL,
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        """
+    )
+
+    # 2) Make sure we have at least one row
+    cur.execute("SELECT id FROM leadership_state ORDER BY id LIMIT 1;")
+    row = cur.fetchone()
+    if row is None:
+        cur.execute(
+            "INSERT INTO leadership_state (state_json) VALUES (%s);",
+            (json.dumps(default_state()),),
+        )
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
+# Serve index.html from the project root (where your index.html lives)
+app = Flask(__name__, static_folder=".")
+
+# Initialize DB
+ensure_table()
+
+
+@app.route("/")
+def index():
+    return send_from_directory(app.static_folder, "index.html")
+
 
 @app.route("/api/state", methods=["GET"])
 def get_state():
@@ -68,10 +85,24 @@ def get_state():
     cur.close()
     conn.close()
 
-    if row and row[0] is not None:
-        return jsonify(row[0])
-    else:
-        return jsonify(default_state())
+    if row and row[0]:
+        # Could be JSON already or string
+        if isinstance(row[0], (dict, list)):
+            return jsonify(row[0])
+        return jsonify(json.loads(row[0]))
+
+    # If no row (super rare), seed default again
+    state = default_state()
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO leadership_state (state_json) VALUES (%s);",
+        (json.dumps(state),),
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify(state)
 
 
 @app.route("/api/state", methods=["POST"])
@@ -81,6 +112,7 @@ def save_state():
     conn = get_conn()
     cur = conn.cursor()
 
+    # Update the single row
     cur.execute(
         """
         UPDATE leadership_state
@@ -91,12 +123,10 @@ def save_state():
         (json.dumps(data),),
     )
 
+    # If no row existed, insert one
     if cur.rowcount == 0:
         cur.execute(
-            """
-            INSERT INTO leadership_state (state_json)
-            VALUES (%s);
-            """,
+            "INSERT INTO leadership_state (state_json) VALUES (%s);",
             (json.dumps(data),),
         )
 
