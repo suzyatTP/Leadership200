@@ -71,9 +71,12 @@ app = Flask(__name__)
 ensure_table()
 
 
+from flask import send_from_directory
+
 @app.route("/")
 def index():
-    return send_file("index.html")   # <-- FIXED LINE
+    return send_from_directory(".", "index.html")
+
 
 
 @app.route("/api/state", methods=["GET"])
