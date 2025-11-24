@@ -136,6 +136,18 @@ def save_state():
 
     return jsonify({"status": "ok"})
 
+@app.route("/debug-db")
+def debug_db():
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("SELECT NOW();")
+        ts = cur.fetchone()[0]
+        cur.close()
+        conn.close()
+        return f"DB OK: {ts}"
+    except Exception as e:
+        return f"DB ERROR: {e}", 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
