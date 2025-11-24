@@ -59,7 +59,6 @@ def default_state():
         "gifts": []   # ⭐ ADD THIS LINE TO ENABLE INDIVIDUAL GIFTS STORAGE
     }
 
-
 @app.route("/api/state", methods=["GET"])
 def get_state():
     conn = get_conn()

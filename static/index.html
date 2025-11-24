@@ -112,7 +112,7 @@
 
     .pyramid-section {
       position: relative;
-      padding: 26px 70px 190px; /* 70px left/right so inner content is centered */
+      padding: 26px 70px 190px;
       overflow: hidden;
       align-items: center;
     }
@@ -122,7 +122,7 @@
       left: 50%;
       transform: translateX(-50%);
       top: 30px;
-      width: 100%;   /* fills inner width of .pyramid-section */
+      width: 100%;
       height: 620px;
       background: linear-gradient(
         to bottom,
@@ -204,7 +204,7 @@
 
     .level-row {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 24px; /* bar | X */
+      grid-template-columns: minmax(0, 1fr) 24px;
       align-items: center;
       gap: 0;
       margin-bottom: 8px;
@@ -218,12 +218,10 @@
       top: 0;
       bottom: 0;
       z-index: 5;
-
       display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: 0px;
-
       padding: 2px 6px 1px;
       background: transparent;
       border-radius: 0;
@@ -272,7 +270,7 @@
     .bar-wrapper {
       position: relative;
       height: 32px;
-      background: none;   /* set via JS for blue/red gradient */
+      background: none;
       overflow: hidden;
       display: flex;
       align-items: center;
@@ -302,7 +300,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 0 0 0px;  /* room for right amount box */
+      padding: 0 0 0px;
       font-size: 13px;
       color: #0b2f5b;
       white-space: nowrap;
@@ -455,6 +453,68 @@
       font-family: "Georgia", "Times New Roman", serif;
     }
 
+    /* INDIVIDUAL GIFTS SECTION ----------------------------------- */
+
+    .gift-section {
+      padding: 10px 70px 24px;
+      border-top: 1px solid rgba(0, 0, 0, 0.08);
+      background: #f8f2ea;
+      font-size: 13px;
+    }
+
+    .gift-delete:hover {
+  color: #7f1010 !important;
+    }
+
+    .gift-section-header {
+      margin-bottom: 8px;
+    }
+
+    .gift-section-title {
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #8b1b1b;
+      margin-bottom: 4px;
+    }
+
+    .gift-section-subtitle {
+      font-size: 11px;
+      color: #5e5550;
+      max-width: 620px;
+    }
+
+    .gift-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .gift-table th,
+    .gift-table td {
+      padding: 5px 8px;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .gift-table th {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: #7a6d64;
+    }
+
+    .gift-table td:nth-child(1) {
+      width: 40px;
+      color: #7a6d64;
+    }
+
+    .gift-table td:nth-child(4) {
+      white-space: nowrap;
+    }
+
     @media (max-width: 960px) {
       body {
         padding: 0;
@@ -476,6 +536,9 @@
       }
       .row-labels-right {
         margin-right: 0;
+      }
+      .gift-section {
+        padding: 10px 16px 22px;
       }
     }
   </style>
@@ -553,6 +616,33 @@
       </div>
     </div>
   </div>
+
+  <!-- INDIVIDUAL GIFTS SECTION -->
+  <div class="gift-section">
+    <div class="gift-section-header">
+      <div class="gift-section-title">INDIVIDUAL GIFTS</div>
+      <div class="gift-section-subtitle">
+        Each time you increase “Gifts Received” in a level, you’ll be asked to
+        enter details for that specific gift. Gifts below are sorted by amount,
+        highest to lowest.
+      </div>
+    </div>
+
+    <table class="gift-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Donor Name</th>
+          <th>ID Number</th>
+          <th>Gift Amount</th>
+          <th>Gift Purpose</th>
+          <th></th> 
+        </tr>
+      </thead>
+      <tbody id="giftsTbody">
+      </tbody>
+    </table>
+  </div>
 </div>
 
 <script>
@@ -586,29 +676,109 @@
     return parseNumber(match[1]);
   }
 
-  // ---------- NEW: STATE HELPERS ----------
+  /* ------- INDIVIDUAL GIFTS HELPERS ------- */
 
-  // Build a JS object representing everything we care about
-  function getStateFromDOM() {
-    const rows = Array.from(rowsContainer.querySelectorAll(".level-row")).map((row) => {
-      const receivedInput = row.querySelector(".received-input");
-      const neededInput = row.querySelector(".needed-input");
-      const labelInput = row.querySelector(".label-input");
-      return {
-        received: parseNumber(receivedInput.value),
-        needed: parseNumber(neededInput.value),
-        label: labelInput.value || ""
-      };
+  function renderGifts() {
+  // Sort gifts by amount, highest to lowest
+  gifts.sort((a, b) => (b.amount || 0) - (a.amount || 0));
+
+  giftsTbody.innerHTML = "";
+
+  gifts.forEach((g, index) => {
+    const tr = document.createElement("tr");
+
+    tr.innerHTML = `
+      <td>${index + 1}</td>
+      <td>${g.name || ""}</td>
+      <td>${g.id || ""}</td>
+      <td>${formatCurrency(g.amount || 0)}</td>
+      <td>${g.purpose || ""}</td>
+      <td>
+        <button class="gift-delete" data-index="${index}" style="
+          border: none;
+          background: transparent;
+          color: #b91c1c;
+          font-size: 16px;
+          cursor: pointer;
+        ">&times;</button>
+      </td>
+    `;
+
+    giftsTbody.appendChild(tr);
+  });
+
+  // Attach delete handlers
+  document.querySelectorAll(".gift-delete").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const idx = parseInt(btn.dataset.index);
+      gifts.splice(idx, 1);     // remove gift
+      renderGifts();            // rerender
+      saveState();              // persist
     });
+  });
+}
+
+  function promptForGiftDetails(defaultAmount) {
+    const name = window.prompt("Donor name for this gift? (Required)");
+    if (name === null || name.trim() === "") return null;
+
+    const id = window.prompt("ID number (optional):") || "";
+
+    const defaultAmountPlain = defaultAmount ? String(defaultAmount) : "";
+    const amountStr = window.prompt(
+      "Gift amount for this gift (numbers only):",
+      defaultAmountPlain
+    );
+
+    let amount = defaultAmount || 0;
+    if (amountStr !== null && amountStr.trim() !== "") {
+      amount = parseNumber(amountStr);
+    }
+
+    const purpose = window.prompt("Gift purpose (optional):") || "";
+
+    return {
+      name: name.trim(),
+      id: id.trim(),
+      amount,
+      purpose: purpose.trim(),
+    };
+  }
+
+  function addGiftsForIncrease(addedCount, defaultAmount) {
+    for (let i = 0; i < addedCount; i++) {
+      const gift = promptForGiftDetails(defaultAmount);
+      if (!gift) break;
+      gifts.push(gift);
+    }
+    renderGifts();
+    saveState();
+  }
+
+  // ---------- STATE HELPERS ----------
+
+  function getStateFromDOM() {
+    const rows = Array.from(rowsContainer.querySelectorAll(".level-row")).map(
+      (row) => {
+        const receivedInput = row.querySelector(".received-input");
+        const neededInput = row.querySelector(".needed-input");
+        const labelInput = row.querySelector(".label-input");
+        return {
+          received: parseNumber(receivedInput.value),
+          needed: parseNumber(neededInput.value),
+          label: labelInput.value || "",
+        };
+      }
+    );
 
     return {
       goal: parseNumber(goalInput.value),
       title: headerTitleEl.textContent || "Leadership 200",
-      rows: rows
+      rows,
+      gifts,
     };
   }
 
-  // Create rows based on a state object from the server
   function loadStateIntoDOM(state) {
     rowsContainer.innerHTML = "";
     rowCounter = 0;
@@ -616,30 +786,30 @@
     goalInput.value = state.goal || "";
     headerTitleEl.textContent = state.title || "LEADERSHIP 200";
 
-    (state.rows || []).forEach(r => {
+    (state.rows || []).forEach((r) => {
       addRow({
         received: r.received,
         needed: r.needed,
-        label: r.label
+        label: r.label,
       });
     });
+
+    gifts = Array.isArray(state.gifts) ? state.gifts.slice() : [];
+    renderGifts();
 
     recalcAll();
   }
 
-  // Save state to backend (fire and forget)
   function saveState() {
     const state = getStateFromDOM();
     fetch("/api/state", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(state)
-    }).catch(err => {
+      body: JSON.stringify(state),
+    }).catch((err) => {
       console.error("Failed to save state", err);
     });
   }
-
-  // ---------- END NEW HELPERS ----------
 
   const rowsContainer = document.getElementById("rowsContainer");
   const addRowBtn = document.getElementById("addRowBtn");
@@ -654,8 +824,10 @@
   const grandReceivedEl = document.getElementById("grandReceived");
   const triangleTotalAmountEl = document.getElementById("triangleTotalAmount");
   const bottomBannerEl = document.getElementById("bottomBanner");
+  const giftsTbody = document.getElementById("giftsTbody");
 
   let rowCounter = 0;
+  let gifts = [];
 
   function addRow(defaults = {}) {
     rowCounter++;
@@ -664,7 +836,7 @@
     row.dataset.rowId = String(rowCounter);
 
     const received = defaults.received ?? "";
-       const needed = defaults.needed ?? "";
+    const needed = defaults.needed ?? "";
     const label = defaults.label ?? "";
 
     row.innerHTML = `
@@ -697,9 +869,27 @@
     const labelInput = row.querySelector(".label-input");
     const deleteBtn = row.querySelector(".delete-btn");
 
-    [receivedInput, neededInput, labelInput].forEach((inp) => {
-      inp.addEventListener("input", recalcAll);
+    // Track previous received count so we know when it increases
+    receivedInput.dataset.prev = received || 0;
+
+    receivedInput.addEventListener("input", (e) => {
+      const input = e.target;
+      const prev = parseNumber(input.dataset.prev || "0");
+      const current = parseNumber(input.value);
+
+      input.dataset.prev = current;
+
+      if (current > prev) {
+        const added = current - prev;
+        const giftAmount = extractGiftAmountFromLabel(labelInput.value);
+        addGiftsForIncrease(added, giftAmount);
+      }
+
+      recalcAll();
     });
+
+    neededInput.addEventListener("input", recalcAll);
+    labelInput.addEventListener("input", recalcAll);
 
     deleteBtn.addEventListener("click", () => {
       row.remove();
@@ -737,7 +927,7 @@
 
       let pct = 0;
       if (needed > 0) pct = Math.max(0, Math.min(1, received / needed));
-      barFill.style.width = (pct * 100) + "%";
+      barFill.style.width = pct * 100 + "%";
 
       if (received > 0) {
         fractionPill.classList.add("has-received");
@@ -753,7 +943,6 @@
       const barWrapper = row.querySelector(".bar-wrapper");
 
       if (index % 2 === 0) {
-        // BLUE row: dark → light → white → light → dark
         barWrapper.style.background =
           "linear-gradient(to right," +
           " #0047b5 0%," +
@@ -762,7 +951,6 @@
           " #4f7fd6 82%," +
           " #0047b5 100%)";
       } else {
-        // RED row: dark → light → white → light → dark
         barWrapper.style.background =
           "linear-gradient(to right," +
           " #c6001a 0%," +
@@ -782,10 +970,12 @@
       const variance = plannedTotal - goal;
       const sign = variance === 0 ? "" : variance > 0 ? "+ " : "- ";
       varianceDisplayEl.textContent =
-        variance === 0 ? "On goal" : sign + formatCurrency(Math.abs(variance));
+        variance === 0
+          ? "On goal"
+          : sign + formatCurrency(Math.abs(variance));
 
       const pctGoal = Math.max(0, Math.min(1, receivedTotal / goal));
-      summaryProgressEl.style.width = (pctGoal * 100) + "%";
+      summaryProgressEl.style.width = pctGoal * 100 + "%";
     } else {
       goalDisplaySmallEl.textContent = "$0";
       varianceDisplayEl.textContent = "—";
@@ -800,7 +990,6 @@
         : "0 LEADERSHIP GIFTS/PLEDGES";
     bottomBannerEl.textContent = giftsText;
 
-    // NEW: persist current state
     saveState();
   }
 
@@ -811,16 +1000,14 @@
 
   addRowBtn.addEventListener("click", () => addRow());
 
-  // Load initial state from the backend
   fetch("/api/state")
-    .then(res => res.json())
-    .then(state => {
+    .then((res) => res.json())
+    .then((state) => {
       loadStateIntoDOM(state);
     })
-    .catch(err => {
+    .catch((err) => {
       console.error("Failed to load state, falling back to defaults", err);
 
-      // Fallback defaults if API isn't ready
       const defaultState = {
         goal: 100000000,
         title: "LEADERSHIP 200",
@@ -834,8 +1021,9 @@
           { received: 0, needed: 14, label: "14 Gifts/Pledges of $500,000" },
           { received: 0, needed: 20, label: "20 Gifts/Pledges of $250,000" },
           { received: 0, needed: 50, label: "50 Gifts/Pledges of $100,000" },
-          { received: 0, needed: 100, label: "100 Gifts/Pledges of $50,000" }
-        ]
+          { received: 0, needed: 100, label: "100 Gifts/Pledges of $50,000" },
+        ],
+        gifts: [],
       };
 
       loadStateIntoDOM(defaultState);
