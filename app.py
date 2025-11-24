@@ -1,6 +1,6 @@
 import os
 import json
-from flask import Flask, send_from_directory, request, jsonify
+from flask import Flask, send_file, request, jsonify
 import psycopg2
 
 # Render gives you this via the Environment variable
@@ -64,8 +64,8 @@ def ensure_table():
     conn.close()
 
 
-# Serve index.html from the project root (where your index.html lives)
-app = Flask(__name__, static_folder=".")
+# Serve index.html from the project root (NO static folder needed)
+app = Flask(__name__)
 
 # Initialize DB
 ensure_table()
@@ -73,7 +73,7 @@ ensure_table()
 
 @app.route("/")
 def index():
-    return send_from_directory(app.static_folder, "index.html")
+    return send_file("index.html")   # <-- FIXED LINE
 
 
 @app.route("/api/state", methods=["GET"])
@@ -86,12 +86,11 @@ def get_state():
     conn.close()
 
     if row and row[0]:
-        # Could be JSON already or string
         if isinstance(row[0], (dict, list)):
             return jsonify(row[0])
         return jsonify(json.loads(row[0]))
 
-    # If no row (super rare), seed default again
+    # If no row existed, reinsert default
     state = default_state()
     conn = get_conn()
     cur = conn.cursor()
@@ -112,7 +111,7 @@ def save_state():
     conn = get_conn()
     cur = conn.cursor()
 
-    # Update the single row
+    # Update the main row
     cur.execute(
         """
         UPDATE leadership_state
@@ -123,7 +122,6 @@ def save_state():
         (json.dumps(data),),
     )
 
-    # If no row existed, insert one
     if cur.rowcount == 0:
         cur.execute(
             "INSERT INTO leadership_state (state_json) VALUES (%s);",
