@@ -35,7 +35,7 @@ def default_state():
 
 
 def ensure_table():
-    """Create leadership_state table and make sure there is one row."""
+    """Create leadership_state table and make sure there is one row with default_state()."""
     conn = get_conn()
     cur = conn.cursor()
 
@@ -50,18 +50,16 @@ def ensure_table():
         """
     )
 
+    # 2) Make sure there is at least one row
     cur.execute("SELECT id FROM leadership_state ORDER BY id LIMIT 1;")
-row = cur.fetchone()
-if row is None:
-    cur.execute(
-        "INSERT INTO leadership_state (state_json) VALUES (%s) RETURNING id;",
-        (json.dumps(merged_state),),
-    )
-else:
-    cur.execute(
-        "UPDATE leadership_state SET state_json = %s, updated_at = NOW() WHERE id = %s",
-        (json.dumps(merged_state), row[0]),
-    )
+    row = cur.fetchone()
+
+    if row is None:
+        state = default_state()
+        cur.execute(
+            "INSERT INTO leadership_state (state_json) VALUES (%s);",
+            (json.dumps(state),),
+        )
 
     conn.commit()
     cur.close()
@@ -143,16 +141,28 @@ def merge_state_with_template(incoming):
 def save_state():
     try:
         incoming = request.get_json()
-
-        # Lock rows to template, only update received + gifts (+ goal/title)
         merged_state = merge_state_with_template(incoming)
 
         conn = get_conn()
         cur = conn.cursor()
-        cur.execute(
-            "UPDATE leadership_state SET state_json = %s, updated_at = NOW() WHERE id = 1",
-            [json.dumps(merged_state)],
-        )
+
+        # Find existing row
+        cur.execute("SELECT id FROM leadership_state ORDER BY id LIMIT 1;")
+        row = cur.fetchone()
+
+        if row is None:
+            # No row yet → insert
+            cur.execute(
+                "INSERT INTO leadership_state (state_json) VALUES (%s);",
+                (json.dumps(merged_state),),
+            )
+        else:
+            # Update the existing row
+            cur.execute(
+                "UPDATE leadership_state SET state_json = %s, updated_at = NOW() WHERE id = %s",
+                (json.dumps(merged_state), row[0]),
+            )
+
         conn.commit()
         cur.close()
         conn.close()

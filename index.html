@@ -827,14 +827,6 @@
     }
   );
 
-  return {
-    goal: parseNumber(goalInput.value),
-    title: headerTitleEl.textContent || "LEADERSHIP 200",
-    rows,
-    gifts,
-  };
-}
-
 // ⬇️ move THIS out here, at top level
 function saveState() {
   const state = getStateFromDOM();
