@@ -814,20 +814,29 @@
   // ---------- STATE HELPERS ----------
 
   function getStateFromDOM() {
-    const rows = Array.from(rowsContainer.querySelectorAll(".level-row")).map(
-      (row) => {
-        const receivedInput = row.querySelector(".received-input");
-        const neededInput = row.querySelector(".needed-input");
-        const labelInput = row.querySelector(".label-input");
-        return {
-          received: parseNumber(receivedInput.value),
-          needed: parseNumber(neededInput.value),
-          label: labelInput.value || "",
-        };
-      }
-    );
+  const rows = Array.from(rowsContainer.querySelectorAll(".level-row")).map(
+    (row) => {
+      const receivedInput = row.querySelector(".received-input");
+      const neededInput = row.querySelector(".needed-input");
+      const labelInput = row.querySelector(".label-input");
+      return {
+        received: parseNumber(receivedInput.value),
+        needed: parseNumber(neededInput.value),
+        label: labelInput.value || "",
+      };
+    }
+  );
 
-    function saveState() {
+  return {
+    goal: parseNumber(goalInput.value),
+    title: headerTitleEl.textContent || "LEADERSHIP 200",
+    rows,
+    gifts,
+  };
+}
+
+// ⬇️ move THIS out here, at top level
+function saveState() {
   const state = getStateFromDOM();
 
   fetch("/api/state", {

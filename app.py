@@ -50,14 +50,18 @@ def ensure_table():
         """
     )
 
-    # 2) Make sure we have at least one row
     cur.execute("SELECT id FROM leadership_state ORDER BY id LIMIT 1;")
-    row = cur.fetchone()
-    if row is None:
-        cur.execute(
-            "INSERT INTO leadership_state (state_json) VALUES (%s);",
-            (json.dumps(default_state()),),
-        )
+row = cur.fetchone()
+if row is None:
+    cur.execute(
+        "INSERT INTO leadership_state (state_json) VALUES (%s) RETURNING id;",
+        (json.dumps(merged_state),),
+    )
+else:
+    cur.execute(
+        "UPDATE leadership_state SET state_json = %s, updated_at = NOW() WHERE id = %s",
+        (json.dumps(merged_state), row[0]),
+    )
 
     conn.commit()
     cur.close()
