@@ -1021,6 +1021,12 @@
       levelReceivedBox.textContent = formatCurrency(levelReceived);
     });
 
+    // Total from individual gifts (pop-up questionnaire)
+      const giftsTotal = gifts.reduce(
+      (sum, g) => sum + (g.amount || 0),
+      0 
+    );
+
     // Alternating gradients for bars
     rows.forEach((row, index) => {
       const barWrapper = row.querySelector(".bar-wrapper");
@@ -1057,7 +1063,7 @@
           ? "On goal"
           : sign + formatCurrency(Math.abs(variance));
 
-      const pctGoal = Math.max(0, Math.min(1, receivedTotal / goal));
+          const pctGoal = Math.max(0, Math.min(1, giftsTotal / goal));
       summaryProgressEl.style.width = pctGoal * 100 + "%";
     } else {
       goalDisplaySmallEl.textContent = "$0";
@@ -1065,7 +1071,7 @@
       summaryProgressEl.style.width = "0%";
     }
 
-    grandReceivedEl.textContent = formatCurrency(receivedTotal);
+    grandReceivedEl.textContent = formatCurrency(giftsTotal);
 
     const giftsText =
       totalNeeded > 0
