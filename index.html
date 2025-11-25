@@ -983,105 +983,78 @@
 
   // ---------- RECALCULATION ----------
 
-  function recalcAll() {
-    const rows = Array.from(rowsContainer.querySelectorAll(".level-row"));
-    let plannedTotal = 0;
-    let receivedTotal = 0;
-    let totalNeeded = 0;
+  ffunction recalcAll() {
+  const rows = Array.from(rowsContainer.querySelectorAll(".level-row"));
+  let plannedTotal = 0;
+  let totalNeeded = 0;
 
-    rows.forEach((row) => {
-      const receivedInput = row.querySelector(".received-input");
-      const neededInput = row.querySelector(".needed-input");
-      const labelInput = row.querySelector(".label-input");
-      const barFill = row.querySelector(".bar-fill");
-      const fractionPill = row.querySelector(".fraction-pill");
-      const levelReceivedBox = row.querySelector(".level-received");
-
-      const received = parseNumber(receivedInput.value);
-      const needed = parseNumber(neededInput.value);
-      const giftAmount = extractGiftAmountFromLabel(labelInput.value);
-
-      const levelGoal = giftAmount * needed;
-      const levelReceived = giftAmount * received;
-
-      plannedTotal += levelGoal;
-      receivedTotal += levelReceived;
-      totalNeeded += needed;
-
-      let pct = 0;
-      if (needed > 0) pct = Math.max(0, Math.min(1, received / needed));
-      barFill.style.width = pct * 100 + "%";
-
-      if (received > 0) {
-        fractionPill.classList.add("has-received");
-      } else {
-        fractionPill.classList.remove("has-received");
-      }
-
-      levelReceivedBox.textContent = formatCurrency(levelReceived);
-    });
-
-    // Total from individual gifts (pop-up questionnaire)
-      const giftsTotal = gifts.reduce(
-      (sum, g) => sum + (g.amount || 0),
-      0 
+  // REAL RECEIVED TOTAL from Individual Gifts
+  const giftsTotal = gifts.reduce(
+    (sum, g) => sum + (g.amount || 0),
+    0
   );
 
-    // Alternating gradients for bars
-    rows.forEach((row, index) => {
-      const barWrapper = row.querySelector(".bar-wrapper");
+  rows.forEach((row) => {
+    const receivedInput = row.querySelector(".received-input");
+    const neededInput   = row.querySelector(".needed-input");
+    const labelInput    = row.querySelector(".label-input");
+    const barFill       = row.querySelector(".bar-fill");
+    const fractionPill  = row.querySelector(".fraction-pill");
+    const levelReceivedBox = row.querySelector(".level-received");
 
-      if (index % 2 === 0) {
-        barWrapper.style.background =
-          "linear-gradient(to right," +
-          " #0047b5 0%," +
-          " #4f7fd6 18%," +
-          " #ffffff 50%," +
-          " #4f7fd6 82%," +
-          " #0047b5 100%)";
-      } else {
-        barWrapper.style.background =
-          "linear-gradient(to right," +
-          " #c6001a 0%," +
-          " #ff7a7a 18%," +
-          " #ffffff 50%," +
-          " #ff7a7a 82%," +
-          " #c6001a 100%)";
-      }
-    });
+    const received   = parseNumber(receivedInput.value);
+    const needed     = parseNumber(neededInput.value);
+    const giftAmount = extractGiftAmountFromLabel(labelInput.value);
 
-    plannedTotalEl.textContent = formatCurrency(plannedTotal);
-    triangleTotalAmountEl.textContent = formatCurrency(plannedTotal);
+    const levelGoal      = giftAmount * needed;
+    const levelReceived  = giftAmount * received;
 
-    const goal = parseNumber(goalInput.value);
-    if (goal > 0) {
-      goalDisplaySmallEl.textContent = formatCurrency(goal);
-      const variance = plannedTotal - goal;
-      const sign = variance === 0 ? "" : variance > 0 ? "+ " : "- ";
-      varianceDisplayEl.textContent =
-        variance === 0
-          ? "On goal"
-          : sign + formatCurrency(Math.abs(variance));
+    plannedTotal += levelGoal;
+    totalNeeded  += needed;
 
-      const pctGoal = Math.max(0, Math.min(1, receivedTotal / goal));
-      summaryProgressEl.style.width = pctGoal * 100 + "%";
-    } else {
-      goalDisplaySmallEl.textContent = "$0";
-      varianceDisplayEl.textContent = "—";
-      summaryProgressEl.style.width = "0%";
-    }
+    let pct = 0;
+    if (needed > 0) pct = Math.max(0, Math.min(1, received / needed));
+    barFill.style.width = pct * 100 + "%";
 
-    grandReceivedEl.textContent = formatCurrency(receivedTotal);
+    if (received > 0) fractionPill.classList.add("has-received");
+    else              fractionPill.classList.remove("has-received");
 
-    const giftsText =
-      totalNeeded > 0
-        ? totalNeeded.toLocaleString("en-US") + " LEADERSHIP GIFTS/PLEDGES"
-        : "0 LEADERSHIP GIFTS/PLEDGES";
-    bottomBannerEl.textContent = giftsText;
+    levelReceivedBox.textContent = formatCurrency(levelReceived);
+  });
 
-    // Persist to backend
-    saveState();
+  // Planned & triangle remain row-based
+  plannedTotalEl.textContent       = formatCurrency(plannedTotal);
+  triangleTotalAmountEl.textContent = formatCurrency(plannedTotal);
+
+  // ✅ TOP BLUE NUMBER uses giftsTotal
+  grandReceivedEl.textContent = formatCurrency(giftsTotal);
+
+  // Goal & variance
+  const goal = parseNumber(goalInput.value);
+  if (goal > 0) {
+    goalDisplaySmallEl.textContent = formatCurrency(goal);
+    const variance = plannedTotal - goal;
+    const sign = variance === 0 ? "" : variance > 0 ? "+ " : "- ";
+    varianceDisplayEl.textContent =
+      variance === 0 ? "On goal" : sign + formatCurrency(Math.abs(variance));
+
+    // ✅ PROGRESS BAR also uses giftsTotal
+    const pctGoal = Math.max(0, Math.min(1, giftsTotal / goal));
+    summaryProgressEl.style.width = pctGoal * 100 + "%";
+  } else {
+    goalDisplaySmallEl.textContent = "$0";
+    varianceDisplayEl.textContent  = "—";
+    summaryProgressEl.style.width  = "0%";
   }
+
+  const giftsText =
+    totalNeeded > 0
+      ? totalNeeded.toLocaleString("en-US") + " LEADERSHIP GIFTS/PLEDGES"
+      : "0 LEADERSHIP GIFTS/PLEDGES";
+  bottomBannerEl.textContent = giftsText;
+
+  saveState(); // still persists gifts + rows + goal/title
+}
 
   // ---------- EVENT LISTENERS ----------
 
