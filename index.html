@@ -986,8 +986,8 @@
   function recalcAll() {
     const rows = Array.from(rowsContainer.querySelectorAll(".level-row"));
     let plannedTotal = 0;
+    let receivedTotal = 0;
     let totalNeeded = 0;
-    const giftsTotal = gifts.reduce((sum, g) => sum + (g.amount || 0), 0);
 
     rows.forEach((row) => {
       const receivedInput = row.querySelector(".received-input");
@@ -1025,7 +1025,7 @@
       const giftsTotal = gifts.reduce(
       (sum, g) => sum + (g.amount || 0),
       0 
-    );
+  );
 
     // Alternating gradients for bars
     rows.forEach((row, index) => {
@@ -1063,7 +1063,7 @@
           ? "On goal"
           : sign + formatCurrency(Math.abs(variance));
 
-      const pctGoal = Math.max(0, Math.min(1, giftsTotal / goal));
+      const pctGoal = Math.max(0, Math.min(1, receivedTotal / goal));
       summaryProgressEl.style.width = pctGoal * 100 + "%";
     } else {
       goalDisplaySmallEl.textContent = "$0";
@@ -1071,7 +1071,7 @@
       summaryProgressEl.style.width = "0%";
     }
 
-    grandReceivedEl.textContent = formatCurrency(giftsTotal);
+    grandReceivedEl.textContent = formatCurrency(receivedTotal);
 
     const giftsText =
       totalNeeded > 0
