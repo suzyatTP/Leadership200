@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Leadership 200 – Scale of Gifts</title>
+  <title>Leadership 200</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     :root {
@@ -183,7 +183,7 @@
       font-size: 13px;
       margin-top: 135px;
       margin-bottom: 8px;
-      padding: 0;
+      padding: 0 0 0px;
     }
 
     .row-labels-left {
@@ -209,6 +209,8 @@
       gap: 0;
       margin-bottom: 8px;
     }
+
+    /* 0/1 COUNTER (OVER BAR) --------------------------------------- */
 
     .fraction-pill {
       position: absolute;
@@ -263,6 +265,8 @@
       -moz-appearance: textfield;
     }
 
+    /* CENTER BAR --------------------------------------------------- */
+
     .bar-wrapper {
       position: relative;
       height: 32px;
@@ -296,7 +300,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 0;
+      padding: 0 0 0px;
       font-size: 13px;
       color: #0b2f5b;
       white-space: nowrap;
@@ -320,6 +324,8 @@
       outline: none;
     }
 
+    /* RIGHT AMOUNT (OVER BAR) -------------------------------------- */
+
     .right-amount {
       position: absolute;
       top: 0;
@@ -336,6 +342,8 @@
       font-variant-numeric: tabular-nums;
       z-index: 2;
     }
+
+    /* DELETE BUTTON COLUMN ----------------------------------------- */
 
     .level-right {
       display: flex;
@@ -445,138 +453,146 @@
       font-family: "Georgia", "Times New Roman", serif;
     }
 
-    /* INDIVIDUAL GIFTS DROPDOWN ------------------------------------ */
-
-    .indiv-section {
-      border-top: 1px solid rgba(0, 0, 0, 0.06);
-      background: #f9f3e8;
-      padding: 0 70px 20px;
-    }
-
-    .indiv-toggle {
-      width: 100%;
+    .qty-btn {
       border: none;
-      background: #f4ebdd;
-      padding: 10px 14px;
-      margin: 0 -70px; /* stretch full width of card */
-      border-top: 1px solid rgba(0, 0, 0, 0.06);
-      border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      background: rgba(255, 255, 255, 0.18);
+      color: #ffffff;
+      width: 16px;
+      height: 16px;
+      border-radius: 999px;
       font-size: 11px;
-      letter-spacing: 0.16em;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      padding: 0;
+      margin: 0 3px;
+    }
+
+    .qty-btn:hover {
+      background: rgba(255, 255, 255, 0.32);
+    }
+
+    .qty-down {
+      margin-right: 4px;
+    }
+
+    .qty-up {
+      margin-left: 4px;
+    }
+
+    /* INDIVIDUAL GIFTS SECTION ----------------------------------- */
+
+    .gift-section {
+      padding: 10px 70px 24px;
+      border-top: 1px solid rgba(0, 0, 0, 0.08);
+      background: #f8f2ea;
+      font-size: 13px;
+    }
+
+    .gift-delete:hover {
+      color: #7f1010 !important;
+    }
+
+    .gift-section-header {
+      margin-bottom: 8px;
+    }
+
+    .gift-section-title {
+      font-size: 12px;
+      letter-spacing: 0.18em;
       text-transform: uppercase;
-      color: #7a4a19;
+      color: #8b1b1b;
+      margin-bottom: 4px;
     }
 
-    .indiv-toggle-label {
-      padding-left: 70px;
+    .gift-section-subtitle {
+      font-size: 11px;
+      color: #5e5550;
+      max-width: 620px;
     }
 
-    .indiv-toggle-arrow {
-      padding-right: 70px;
-      transition: transform 0.2s ease;
-    }
-
-    .indiv-toggle.open .indiv-toggle-arrow {
-      transform: rotate(180deg);
-    }
-
-    .indiv-panel {
-      overflow: hidden;
-      max-height: 0;
-      transition: max-height 0.25s ease;
-      padding-top: 0;
-    }
-
-    .indiv-panel-inner {
-      padding-top: 10px;
-    }
-
-    .indiv-description {
-      font-size: 10px;
-      color: #7a6b5b;
-      font-style: italic;
-      margin-bottom: 6px;
-    }
-
-    .indiv-table {
+    .gift-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 11px;
-    }
-
-    .indiv-table th,
-    .indiv-table td {
-      padding: 6px 6px;
-      border-top: 1px solid rgba(0, 0, 0, 0.08);
-    }
-
-    .indiv-table th {
-      text-align: left;
-      font-size: 10px;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: #7a6b5b;
-    }
-
-    .indiv-table td {
-      font-size: 11px;
-    }
-
-    .indiv-table tr:nth-child(even) td {
-      background: #fbf6ee;
-    }
-
-    .add-gift-btn {
       margin-top: 10px;
-      font-size: 11px;
-      padding: 4px 10px;
-      border-radius: 999px;
-      border: 1px solid #d8cfc5;
-      background: #f7f1e6;
-      cursor: pointer;
+      font-variant-numeric: tabular-nums;
     }
 
-    .add-gift-btn:hover {
-      background: #f0e3d4;
+    .gift-table th,
+    .gift-table td {
+      padding: 5px 8px;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+      text-align: left;
+      vertical-align: top;
     }
 
-    @media (max-width: 960px) {
-      body {
-        padding: 0;
-      }
-      .page {
-        border-radius: 0;
-      }
-      .top-strip {
-        padding: 10px 24px;
-      }
+    .gift-table th {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: #7a6d64;
+    }
+
+    .gift-table td:nth-child(1) {
+      width: 40px;
+      color: #7a6d64;
+    }
+
+    .gift-table td:nth-child(4) {
+      white-space: nowrap;
+    }
+
+    @media (max-width: 600px) {
       .pyramid-section {
-        padding: 24px 24px 180px;
+        padding: 16px 10px 140px;
       }
-      .summary {
-        padding: 10px 24px 18px;
+
+      .triangle-total {
+        padding-top: 10px;
       }
-      .indiv-section {
-        padding: 0 24px 20px;
+
+      .triangle-total-amount {
+        font-size: 22px;
       }
-      .indiv-toggle {
-        margin: 0 -24px;
+
+      .row-labels {
+        margin-top: 150px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+        padding: 0 6px 4px;
+        font-size: 11px;
       }
-      .indiv-toggle-label {
-        padding-left: 24px;
-      }
-      .indiv-toggle-arrow {
-        padding-right: 24px;
-      }
-      .level-row {
-        grid-template-columns: minmax(0, 1fr) 24px;
-      }
+
+      .row-labels-left,
       .row-labels-right {
         margin-right: 0;
+        text-align: left;
+      }
+
+      .rows {
+        gap: 4px;
+      }
+
+      .bar-wrapper {
+        height: 28px;
+      }
+
+      .bar-label input {
+        font-size: 12px;
+      }
+
+      .fraction-pill {
+        padding: 2px 6px;
+        font-size: 11px;
+      }
+
+      .right-amount {
+        min-width: 80px;
+        padding: 4px 8px;
+        font-size: 12px;
       }
     }
   </style>
@@ -608,7 +624,7 @@
     </div>
 
     <div class="triangle-bottom-banner" id="bottomBanner">
-      0 LEADERSHIP GIFTS/PLEDGES
+      200 LEADERSHIP GIFTS/PLEDGES
     </div>
 
     <div class="row-labels">
@@ -655,40 +671,37 @@
     </div>
   </div>
 
-  <!-- INDIVIDUAL GIFTS DROPDOWN -->
-  <div class="indiv-section">
-    <button class="indiv-toggle" id="indivToggle" type="button">
-      <span class="indiv-toggle-label">INDIVIDUAL GIFTS</span>
-      <span class="indiv-toggle-arrow">▾</span>
-    </button>
-
-    <div class="indiv-panel" id="indivPanel">
-      <div class="indiv-panel-inner">
-        <p class="indiv-description">
-          Each time you increase “Gifts Received” in a level, you’ll be asked to enter
-          details for that specific gift. Gifts below are sorted by amount, highest to lowest.
-        </p>
-        <table class="indiv-table">
-          <thead>
-          <tr>
-            <th style="width: 40px;">#</th>
-            <th>Donor Name</th>
-            <th style="width: 120px;">ID Number</th>
-            <th style="width: 140px;">Gift Amount</th>
-            <th>Gift Purpose</th>
-          </tr>
-          </thead>
-          <tbody id="giftsTableBody">
-          <!-- rows filled by JS -->
-          </tbody>
-        </table>
-        <button type="button" class="add-gift-btn" id="addGiftBtn">+ Add Gift</button>
+  <!-- INDIVIDUAL GIFTS SECTION -->
+  <div class="gift-section">
+    <div class="gift-section-header">
+      <div class="gift-section-title">INDIVIDUAL GIFTS</div>
+      <div class="gift-section-subtitle">
+        Each time you increase “Gifts Received” in a level, you’ll be asked to
+        enter details for that specific gift. Gifts below are sorted by amount,
+        highest to lowest.
       </div>
     </div>
+
+    <table class="gift-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Donor Name</th>
+          <th>ID Number</th>
+          <th>Gift Amount</th>
+          <th>Gift Purpose</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="giftsTbody">
+      </tbody>
+    </table>
   </div>
 </div>
 
 <script>
+  // ---------- BASIC HELPERS ----------
+
   function parseNumber(raw) {
     if (raw === null || raw === undefined) return 0;
     if (typeof raw !== "string") raw = String(raw);
@@ -712,104 +725,7 @@
     return parseNumber(match[1]);
   }
 
-  // Sum of all Individual Gifts in the table
-  function getGiftsTotal() {
-    const tbody = document.getElementById("giftsTableBody");
-    if (!tbody) return 0;
-
-    let total = 0;
-    Array.from(tbody.querySelectorAll("tr")).forEach((row) => {
-      const amountCell = row.querySelector("td:nth-child(4)");
-      if (!amountCell) return;
-      const text = amountCell.textContent || "";
-      total += parseNumber(text);
-    });
-    return total;
-  }
-
-  function addGiftRow(gift) {
-    const tbody = document.getElementById("giftsTableBody");
-    const index = tbody.querySelectorAll("tr").length + 1;
-
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${index}</td>
-      <td>${gift.donorName || ""}</td>
-      <td>${gift.idNumber || ""}</td>
-      <td>${formatCurrency(gift.amount || 0)}</td>
-      <td>${gift.purpose || ""}</td>
-    `;
-    tbody.appendChild(tr);
-  }
-
-  // ---------- STATE HELPERS ----------
-
-  function getStateFromDOM() {
-    const rows = Array.from(rowsContainer.querySelectorAll(".level-row")).map((row) => {
-      const receivedInput = row.querySelector(".received-input");
-      const neededInput = row.querySelector(".needed-input");
-      const labelInput = row.querySelector(".label-input");
-      return {
-        received: parseNumber(receivedInput.value),
-        needed: parseNumber(neededInput.value),
-        label: labelInput.value || ""
-      };
-    });
-
-    const giftsRows = Array.from(document.querySelectorAll("#giftsTableBody tr"));
-    const gifts = giftsRows.map((row) => {
-      const cells = row.querySelectorAll("td");
-      return {
-        donorName: (cells[1] && cells[1].textContent.trim()) || "",
-        idNumber: (cells[2] && cells[2].textContent.trim()) || "",
-        amount: parseNumber(cells[3] && cells[3].textContent),
-        purpose: (cells[4] && cells[4].textContent.trim()) || ""
-      };
-    });
-
-    return {
-      goal: parseNumber(goalInput.value),
-      title: headerTitleEl.textContent || "LEADERSHIP 200",
-      rows: rows,
-      gifts: gifts
-    };
-  }
-
-  function loadStateIntoDOM(state) {
-    rowsContainer.innerHTML = "";
-    rowCounter = 0;
-
-    goalInput.value = state.goal || "";
-    headerTitleEl.textContent = state.title || "LEADERSHIP 200";
-    titleInput.value = state.title || "";
-
-    (state.rows || []).forEach(r => {
-      addRow({
-        received: r.received,
-        needed: r.needed,
-        label: r.label
-      });
-    });
-
-    const giftsTbody = document.getElementById("giftsTableBody");
-    giftsTbody.innerHTML = "";
-    (state.gifts || []).forEach(g => addGiftRow(g));
-
-    recalcAll();
-  }
-
-  function saveState() {
-    const state = getStateFromDOM();
-    fetch("/api/state", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(state)
-    }).catch(err => {
-      console.error("Failed to save state", err);
-    });
-  }
-
-  // ---------- MAIN UI LOGIC ----------
+  // ---------- DOM REFERENCES & GLOBAL STATE ----------
 
   const rowsContainer = document.getElementById("rowsContainer");
   const addRowBtn = document.getElementById("addRowBtn");
@@ -824,8 +740,150 @@
   const grandReceivedEl = document.getElementById("grandReceived");
   const triangleTotalAmountEl = document.getElementById("triangleTotalAmount");
   const bottomBannerEl = document.getElementById("bottomBanner");
+  const giftsTbody = document.getElementById("giftsTbody");
 
   let rowCounter = 0;
+  let gifts = [];
+
+  // ---------- INDIVIDUAL GIFTS HELPERS ----------
+
+  function renderGifts() {
+    // Sort gifts by amount, highest to lowest
+    gifts.sort((a, b) => (b.amount || 0) - (a.amount || 0));
+
+    giftsTbody.innerHTML = "";
+
+    gifts.forEach((g, index) => {
+      const tr = document.createElement("tr");
+
+      tr.innerHTML = `
+        <td>${index + 1}</td>
+        <td>${g.name || ""}</td>
+        <td>${g.id || ""}</td>
+        <td>${formatCurrency(g.amount || 0)}</td>
+        <td>${g.purpose || ""}</td>
+        <td>
+          <button class="gift-delete" data-index="${index}" style="
+            border: none;
+            background: transparent;
+            color: #b91c1c;
+            font-size: 16px;
+            cursor: pointer;
+          ">&times;</button>
+        </td>
+      `;
+
+      giftsTbody.appendChild(tr);
+    });
+
+    // Attach delete handlers
+    document.querySelectorAll(".gift-delete").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const idx = parseInt(btn.dataset.index, 10);
+        gifts.splice(idx, 1); // remove gift
+        renderGifts();        // rerender
+        saveState();          // persist
+      });
+    });
+  }
+
+  function promptForGiftDetails(defaultAmount) {
+    const name = window.prompt("Donor name for this gift? (Required)");
+    if (name === null || name.trim() === "") return null;
+
+    const id = window.prompt("ID number (optional):") || "";
+
+    const defaultAmountPlain = defaultAmount ? String(defaultAmount) : "";
+    const amountStr = window.prompt(
+      "Gift amount for this gift (numbers only):",
+      defaultAmountPlain
+    );
+
+    let amount = defaultAmount || 0;
+    if (amountStr !== null && amountStr.trim() !== "") {
+      amount = parseNumber(amountStr);
+    }
+
+    const purpose = window.prompt("Gift purpose (optional):") || "";
+
+    return {
+      name: name.trim(),
+      id: id.trim(),
+      amount,
+      purpose: purpose.trim(),
+    };
+  }
+
+  function addGiftsForIncrease(addedCount, defaultAmount) {
+    for (let i = 0; i < addedCount; i++) {
+      const gift = promptForGiftDetails(defaultAmount);
+      if (!gift) break;
+      gifts.push(gift);
+    }
+    renderGifts();
+    saveState();
+  }
+
+  // ---------- STATE HELPERS ----------
+
+  function getStateFromDOM() {
+    const rows = Array.from(
+      rowsContainer.querySelectorAll(".level-row")
+    ).map((row) => {
+      const receivedInput = row.querySelector(".received-input");
+      const neededInput = row.querySelector(".needed-input");
+      const labelInput = row.querySelector(".label-input");
+      return {
+        received: parseNumber(receivedInput.value),
+        needed: parseNumber(neededInput.value),
+        label: labelInput.value || "",
+      };
+    });
+
+    return {
+      goal: parseNumber(goalInput.value),
+      title: headerTitleEl.textContent || "LEADERSHIP 200",
+      rows,
+      gifts,
+    };
+  }
+
+  function saveState() {
+    const state = getStateFromDOM();
+
+    fetch("/api/state", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(state),
+    }).catch((err) => {
+      console.error("Failed to save state", err);
+    });
+  }
+
+  function loadStateIntoDOM(state) {
+    rowsContainer.innerHTML = "";
+    rowCounter = 0;
+
+    goalInput.value = state.goal || "";
+    headerTitleEl.textContent = state.title || "LEADERSHIP 200";
+    titleInput.value = state.title || "";
+
+    (state.rows || []).forEach((r) => {
+      addRow({
+        received: r.received,
+        needed: r.needed,
+        label: r.label,
+      });
+    });
+
+    gifts = Array.isArray(state.gifts) ? state.gifts.slice() : [];
+    renderGifts();
+
+    recalcAll(); // this will also save once
+  }
+
+  // ---------- ROW CREATION ----------
 
   function addRow(defaults = {}) {
     rowCounter++;
@@ -843,9 +901,11 @@
           <div class="bar-fill"></div>
 
           <div class="fraction-pill">
+            <button type="button" class="qty-btn qty-down">−</button>
             <input type="number" min="0" class="received-input" value="${received}">
             <span class="slash">/</span>
             <input type="number" min="0" class="needed-input" value="${needed}">
+            <button type="button" class="qty-btn qty-up">+</button>
           </div>
 
           <div class="bar-label">
@@ -866,9 +926,50 @@
     const neededInput = row.querySelector(".needed-input");
     const labelInput = row.querySelector(".label-input");
     const deleteBtn = row.querySelector(".delete-btn");
+    const upBtn = row.querySelector(".qty-up");
+    const downBtn = row.querySelector(".qty-down");
 
-    [receivedInput, neededInput, labelInput].forEach((inp) => {
-      inp.addEventListener("input", recalcAll);
+    // track previous value so we know how many NEW gifts were added
+    receivedInput.dataset.prev = received || 0;
+
+    // when the received number changes (by typing OR by +/- buttons)
+    receivedInput.addEventListener("input", (e) => {
+      const input = e.target;
+      const prev = parseNumber(input.dataset.prev || "0");
+      const current = parseNumber(input.value);
+
+      // store new value
+      input.dataset.prev = current;
+
+      // if it increased, we need to capture gift details
+      if (current > prev) {
+        const added = current - prev;
+        const labelValue = labelInput.value;
+        const giftAmount = extractGiftAmountFromLabel(labelValue);
+        addGiftsForIncrease(added, giftAmount);
+      }
+
+      recalcAll();
+    });
+
+    // needed + label just trigger recalculation
+    neededInput.addEventListener("input", recalcAll);
+    labelInput.addEventListener("input", recalcAll);
+
+    // click + to bump received up by 1 (and fire the same input logic)
+    upBtn.addEventListener("click", () => {
+      const current = parseNumber(receivedInput.value);
+      const next = current + 1;
+      receivedInput.value = next;
+      receivedInput.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+
+    // click − to decrease received (not below 0)
+    downBtn.addEventListener("click", () => {
+      const current = parseNumber(receivedInput.value);
+      const next = Math.max(0, current - 1);
+      receivedInput.value = next;
+      receivedInput.dispatchEvent(new Event("input", { bubbles: true }));
     });
 
     deleteBtn.addEventListener("click", () => {
@@ -880,9 +981,12 @@
     recalcAll();
   }
 
+  // ---------- RECALCULATION ----------
+
   function recalcAll() {
     const rows = Array.from(rowsContainer.querySelectorAll(".level-row"));
     let plannedTotal = 0;
+    let receivedTotal = 0;
     let totalNeeded = 0;
 
     rows.forEach((row) => {
@@ -901,11 +1005,12 @@
       const levelReceived = giftAmount * received;
 
       plannedTotal += levelGoal;
+      receivedTotal += levelReceived;
       totalNeeded += needed;
 
       let pct = 0;
       if (needed > 0) pct = Math.max(0, Math.min(1, received / needed));
-      barFill.style.width = (pct * 100) + "%";
+      barFill.style.width = pct * 100 + "%";
 
       if (received > 0) {
         fractionPill.classList.add("has-received");
@@ -916,9 +1021,16 @@
       levelReceivedBox.textContent = formatCurrency(levelReceived);
     });
 
-    // alternating gradients
+    // Total from individual gifts (pop-up questionnaire)
+      const giftsTotal = gifts.reduce(
+      (sum, g) => sum + (g.amount || 0),
+      0 
+    );
+
+    // Alternating gradients for bars
     rows.forEach((row, index) => {
       const barWrapper = row.querySelector(".bar-wrapper");
+
       if (index % 2 === 0) {
         barWrapper.style.background =
           "linear-gradient(to right," +
@@ -942,19 +1054,17 @@
     triangleTotalAmountEl.textContent = formatCurrency(plannedTotal);
 
     const goal = parseNumber(goalInput.value);
-
-    // TOTAL RECEIVED TO DATE and progress are driven by Individual Gifts
-    const giftsTotal = getGiftsTotal();
-
     if (goal > 0) {
       goalDisplaySmallEl.textContent = formatCurrency(goal);
       const variance = plannedTotal - goal;
       const sign = variance === 0 ? "" : variance > 0 ? "+ " : "- ";
       varianceDisplayEl.textContent =
-        variance === 0 ? "On goal" : sign + formatCurrency(Math.abs(variance));
+        variance === 0
+          ? "On goal"
+          : sign + formatCurrency(Math.abs(variance));
 
-      const pctGoal = Math.max(0, Math.min(1, giftsTotal / goal));
-      summaryProgressEl.style.width = (pctGoal * 100) + "%";
+          const pctGoal = Math.max(0, Math.min(1, giftsTotal / goal));
+      summaryProgressEl.style.width = pctGoal * 100 + "%";
     } else {
       goalDisplaySmallEl.textContent = "$0";
       varianceDisplayEl.textContent = "—";
@@ -969,10 +1079,14 @@
         : "0 LEADERSHIP GIFTS/PLEDGES";
     bottomBannerEl.textContent = giftsText;
 
+    // Persist to backend
     saveState();
   }
 
+  // ---------- EVENT LISTENERS ----------
+
   goalInput.addEventListener("input", recalcAll);
+
   titleInput.addEventListener("input", () => {
     headerTitleEl.textContent = titleInput.value || "LEADERSHIP 200";
     saveState();
@@ -980,48 +1094,14 @@
 
   addRowBtn.addEventListener("click", () => addRow());
 
-  // INDIVIDUAL GIFTS DROPDOWN TOGGLE
-  const indivToggle = document.getElementById("indivToggle");
-  const indivPanel = document.getElementById("indivPanel");
+  // ---------- INITIAL LOAD ----------
 
-  if (indivToggle && indivPanel) {
-    // collapsed by default
-    indivPanel.style.maxHeight = "0px";
-
-    indivToggle.addEventListener("click", () => {
-      const isOpen = indivToggle.classList.contains("open");
-      if (isOpen) {
-        indivToggle.classList.remove("open");
-        indivPanel.style.maxHeight = "0px";
-      } else {
-        indivToggle.classList.add("open");
-        indivPanel.style.maxHeight = indivPanel.scrollHeight + "px";
-      }
-    });
-  }
-
-  // ADD GIFT BUTTON
-  const addGiftBtn = document.getElementById("addGiftBtn");
-  if (addGiftBtn) {
-    addGiftBtn.addEventListener("click", () => {
-      const donorName = prompt("Donor Name:") || "";
-      const idNumber = prompt("ID Number (optional):") || "";
-      const amountRaw = prompt("Gift Amount (numbers only):") || "0";
-      const amount = parseNumber(amountRaw);
-      const purpose = prompt("Gift Purpose (optional):") || "";
-
-      addGiftRow({ donorName, idNumber, amount, purpose });
-      recalcAll();
-    });
-  }
-
-  // Load initial state from backend
   fetch("/api/state")
-    .then(res => res.json())
-    .then(state => {
+    .then((res) => res.json())
+    .then((state) => {
       loadStateIntoDOM(state);
     })
-    .catch(err => {
+    .catch((err) => {
       console.error("Failed to load state, falling back to defaults", err);
 
       const defaultState = {
@@ -1037,9 +1117,10 @@
           { received: 0, needed: 14, label: "14 Gifts/Pledges of $500,000" },
           { received: 0, needed: 20, label: "20 Gifts/Pledges of $250,000" },
           { received: 0, needed: 50, label: "50 Gifts/Pledges of $100,000" },
-          { received: 0, needed: 100, label: "100 Gifts/Pledges of $50,000" }
+          { received: 0, needed: 100, label: "100 Gifts/Pledges of $50,000" },
+          { received: 0, needed: 1, label: "Direct Mail Gifts Totaling $3,000,000" },
         ],
-        gifts: []
+        gifts: [],
       };
 
       loadStateIntoDOM(defaultState);
