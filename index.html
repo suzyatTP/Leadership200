@@ -733,19 +733,26 @@
   }
 
   function addGiftRow(gift) {
-    const tbody = document.getElementById("giftsTableBody");
-    const index = tbody.querySelectorAll("tr").length + 1;
+  const tbody = document.getElementById("giftsTableBody");
+  const index = tbody.querySelectorAll("tr").length + 1;
 
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
+  const tr = document.createElement("tr");
+  tr.innerHTML = `
       <td>${index}</td>
       <td>${gift.donorName || ""}</td>
       <td>${gift.idNumber || ""}</td>
       <td>${formatCurrency(gift.amount || 0)}</td>
       <td>${gift.purpose || ""}</td>
     `;
-    tbody.appendChild(tr);
+  tbody.appendChild(tr);
+
+  // Make sure the panel grows to show the new row *and* the Add Gift button
+  const indivPanel = document.getElementById("indivPanel");
+  const indivToggle = document.getElementById("indivToggle");
+  if (indivPanel && indivToggle && indivToggle.classList.contains("open")) {
+    indivPanel.style.maxHeight = indivPanel.scrollHeight + "px";
   }
+}
 
   // ---------- STATE HELPERS ----------
 
