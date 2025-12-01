@@ -594,59 +594,6 @@
         padding: 4px 8px;
         font-size: 12px;
       }
-
-      /* INDIVIDUAL GIFTS TOGGLE / DROPDOWN ----------------------------- */
-
-.gift-toggle {
-  width: 100%;
-  border: none;
-  background: #f0e4d5;
-  padding: 10px 12px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  cursor: pointer;
-  font-family: "Georgia", "Times New Roman", serif;
-}
-
-.gift-toggle-left {
-  text-align: left;
-}
-
-.gift-toggle-title {
-  font-size: 12px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: #8b1b1b;
-}
-
-.gift-toggle-subtitle {
-  display: block;
-  margin-top: 3px;
-  font-size: 11px;
-  color: #5e5550;
-  max-width: 620px;
-}
-
-.gift-toggle-chevron {
-  font-size: 16px;
-  margin-left: 12px;
-  transition: transform 0.18s ease;
-}
-
-.gift-toggle.open .gift-toggle-chevron {
-  transform: rotate(180deg);  /* flip arrow when open */
-}
-
-.gift-section-body {
-  margin-top: 8px;
-}
-
-/* default: collapsed (hidden) */
-.gift-section-body.collapsed {
-  display: none;
-}
-
     }
   </style>
 </head>
@@ -724,38 +671,35 @@
     </div>
   </div>
 
-    <!-- INDIVIDUAL GIFTS SECTION (DROPDOWN) -->
-    <div class="gift-section">
-      <button type="button" class="gift-toggle" id="giftToggle">
-        <div class="gift-toggle-left">
-          <div class="gift-toggle-title">INDIVIDUAL GIFTS</div>
-          <span class="gift-toggle-subtitle">
-            Each time you increase “Gifts Received” in a level, you’ll be asked to
-            enter details for that specific gift. Gifts below are sorted by amount,
-            highest to lowest.
-          </span>
-        </div>
-        <div class="gift-toggle-chevron">▾</div>
-      </button>
-  
-      <div class="gift-section-body collapsed" id="giftSectionBody">
-        <table class="gift-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Donor Name</th>
-              <th>ID Number</th>
-              <th>Gift Amount</th>
-              <th>Gift Purpose</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="giftsTbody">
-          </tbody>
-        </table>
+  <!-- INDIVIDUAL GIFTS SECTION -->
+  <div class="gift-section">
+    <div class="gift-section-header">
+      <div class="gift-section-title">INDIVIDUAL GIFTS</div>
+      <div class="gift-section-subtitle">
+        Each time you increase “Gifts Received” in a level, you’ll be asked to
+        enter details for that specific gift. Gifts below are sorted by amount,
+        highest to lowest.
       </div>
     </div>
-  
+
+    <table class="gift-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Donor Name</th>
+          <th>ID Number</th>
+          <th>Gift Amount</th>
+          <th>Gift Purpose</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="giftsTbody">
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
   // ---------- BASIC HELPERS ----------
 
   function parseNumber(raw) {
@@ -797,9 +741,6 @@
   const triangleTotalAmountEl = document.getElementById("triangleTotalAmount");
   const bottomBannerEl = document.getElementById("bottomBanner");
   const giftsTbody = document.getElementById("giftsTbody");
-  const giftToggle = document.getElementById("giftToggle");
-  const giftSectionBody = document.getElementById("giftSectionBody");
-
 
   let rowCounter = 0;
   let gifts = [];
@@ -1151,13 +1092,7 @@
     saveState();
   });
 
-  giftToggle.addEventListener("click", () => {
-    giftSectionBody.classList.toggle("collapsed");
-    giftToggle.classList.toggle("open");
-  });
-
   addRowBtn.addEventListener("click", () => addRow());
-  
 
   // ---------- INITIAL LOAD ----------
 
