@@ -746,14 +746,6 @@
     `;
   tbody.appendChild(tr);
 
-  // 🔽 Keep the "Add Gift" button visible by growing the panel
-  const indivPanel = document.getElementById("indivPanel");
-  const indivToggle = document.getElementById("indivToggle");
-  if (indivPanel && indivToggle && indivToggle.classList.contains("open")) {
-    indivPanel.style.maxHeight = indivPanel.scrollHeight + "px";
-  }
-}
-
   // Make sure the panel grows to show the new row *and* the Add Gift button
   const indivPanel = document.getElementById("indivPanel");
   const indivToggle = document.getElementById("indivToggle");
