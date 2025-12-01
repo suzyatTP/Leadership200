@@ -458,7 +458,7 @@
       border: none;
       background: #f4ebdd;
       padding: 10px 14px;
-      margin: 0 -70px; /* stretch full width of card */
+      margin: 0 -70px;
       border-top: 1px solid rgba(0, 0, 0, 0.06);
       border-bottom: 1px solid rgba(0, 0, 0, 0.06);
       cursor: pointer;
@@ -661,14 +661,13 @@
       <span class="indiv-toggle-label">INDIVIDUAL GIFTS</span>
       <span class="indiv-toggle-arrow">▾</span>
     </button>
-  
+
     <div class="indiv-panel" id="indivPanel">
       <div class="indiv-panel-inner">
         <p class="indiv-description">
           Each time you increase “Gifts Received” in a level, you’ll be asked to enter
           details for that specific gift. Gifts below are sorted by amount, highest to lowest.
         </p>
-  
         <table class="indiv-table">
           <thead>
           <tr>
@@ -679,21 +678,19 @@
             <th>Gift Purpose</th>
           </tr>
           </thead>
-  
-          <!-- IMPORTANT: tbody ONLY contains gifts -->
           <tbody id="giftsTableBody">
-            <!-- rows filled by JS -->
+          <!-- rows filled by JS -->
           </tbody>
         </table>
-  
-        <!-- IMPORTANT: button must live OUTSIDE the tbody -->
         <button type="button" class="add-gift-btn" id="addGiftBtn">+ Add Gift</button>
-  
       </div>
     </div>
-  </div>  
+  </div>
+</div>
 
 <script>
+  /* ---------- BASIC HELPERS ---------- */
+
   function parseNumber(raw) {
     if (raw === null || raw === undefined) return 0;
     if (typeof raw !== "string") raw = String(raw);
@@ -717,19 +714,25 @@
     return parseNumber(match[1]);
   }
 
-  // Sum of all Individual Gifts in the table
-  function getGiftsTotal() {
-    const tbody = document.getElementById("giftsTableBody");
-    if (!tbody) return 0;
+  /* ---------- GIFTS HELPERS ---------- */
 
-    let total = 0;
-    Array.from(tbody.querySelectorAll("tr")).forEach((row) => {
-      const amountCell = row.querySelector("td:nth-child(4)");
-      if (!amountCell) return;
-      const text = amountCell.textContent || "";
-      total += parseNumber(text);
-    });
-    return total;
+  function getGiftsFromDOM() {
+    const rows = Array.from(document.querySelectorAll("#giftsTableBody tr"));
+    return rows
+      .map((row) => {
+        const cells = row.querySelectorAll("td");
+        return {
+          donorName: (cells[1] && cells[1].textContent.trim()) || "",
+          idNumber: (cells[2] && cells[2].textContent.trim()) || "",
+          amount: parseNumber(cells[3] && cells[3].textContent),
+          purpose: (cells[4] && cells[4].textContent.trim()) || "",
+        };
+      })
+      .filter((g) => g.amount > 0);
+  }
+
+  function getGiftsTotal() {
+    return getGiftsFromDOM().reduce((sum, g) => sum + g.amount, 0);
   }
 
   function addGiftRow(gift) {
@@ -747,7 +750,18 @@
     tbody.appendChild(tr);
   }
 
-  // ---------- STATE HELPERS ----------
+  // Find which level row a gift belongs to, based on base amounts (descending).
+  function findRowIndexForAmount(amount, levelBases) {
+    for (let i = 0; i < levelBases.length; i++) {
+      const base = levelBases[i] || 0;
+      if (base > 0 && amount >= base) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  /* ---------- STATE HELPERS ---------- */
 
   function getStateFromDOM() {
     const rows = Array.from(rowsContainer.querySelectorAll(".level-row")).map((row) => {
@@ -761,16 +775,7 @@
       };
     });
 
-    const giftsRows = Array.from(document.querySelectorAll("#giftsTableBody tr"));
-    const gifts = giftsRows.map((row) => {
-      const cells = row.querySelectorAll("td");
-      return {
-        donorName: (cells[1] && cells[1].textContent.trim()) || "",
-        idNumber: (cells[2] && cells[2].textContent.trim()) || "",
-        amount: parseNumber(cells[3] && cells[3].textContent),
-        purpose: (cells[4] && cells[4].textContent.trim()) || ""
-      };
-    });
+    const gifts = getGiftsFromDOM();
 
     return {
       goal: parseNumber(goalInput.value),
@@ -814,7 +819,7 @@
     });
   }
 
-  // ---------- MAIN UI LOGIC ----------
+  /* ---------- MAIN UI LOGIC ---------- */
 
   const rowsContainer = document.getElementById("rowsContainer");
   const addRowBtn = document.getElementById("addRowBtn");
@@ -886,11 +891,31 @@
   }
 
   function recalcAll() {
-    const rows = Array.from(rowsContainer.querySelectorAll(".level-row"));
+    const rowElems = Array.from(rowsContainer.querySelectorAll(".level-row"));
+    const gifts = getGiftsFromDOM();
+
+    // Base amount for each level (from label)
+    const levelBases = rowElems.map(row => {
+      const labelInput = row.querySelector(".label-input");
+      return extractGiftAmountFromLabel(labelInput.value);
+    });
+
+    // Totals and counts of gifts assigned to each level
+    const levelTotals = new Array(rowElems.length).fill(0);
+    const levelGiftCounts = new Array(rowElems.length).fill(0);
+
+    gifts.forEach(g => {
+      const idx = findRowIndexForAmount(g.amount, levelBases);
+      if (idx >= 0) {
+        levelTotals[idx] += g.amount;
+        levelGiftCounts[idx] += 1;
+      }
+    });
+
     let plannedTotal = 0;
     let totalNeeded = 0;
 
-    rows.forEach((row) => {
+    rowElems.forEach((row, idx) => {
       const receivedInput = row.querySelector(".received-input");
       const neededInput = row.querySelector(".needed-input");
       const labelInput = row.querySelector(".label-input");
@@ -898,31 +923,42 @@
       const fractionPill = row.querySelector(".fraction-pill");
       const levelReceivedBox = row.querySelector(".level-received");
 
-      const received = parseNumber(receivedInput.value);
+      const baseAmount = levelBases[idx];
       const needed = parseNumber(neededInput.value);
-      const giftAmount = extractGiftAmountFromLabel(labelInput.value);
+      const manualReceived = parseNumber(receivedInput.value);
 
-      const levelGoal = giftAmount * needed;
-      const levelReceived = giftAmount * received;
-
-      plannedTotal += levelGoal;
+      // Planned dollars from this level = base * needed
+      const levelPlanned = baseAmount * needed;
+      plannedTotal += levelPlanned;
       totalNeeded += needed;
 
+      // Actual gifts & dollars from individual gifts
+      const giftsCountForRow = levelGiftCounts[idx];
+      const giftsTotalForRow = levelTotals[idx];
+
+      // Received count must be at least as many gifts as we have records for
+      const actualReceived = Math.max(manualReceived, giftsCountForRow);
+      if (actualReceived !== manualReceived) {
+        receivedInput.value = actualReceived;
+      }
+
+      // Progress fill based on received / needed
       let pct = 0;
-      if (needed > 0) pct = Math.max(0, Math.min(1, received / needed));
+      if (needed > 0) pct = Math.max(0, Math.min(1, actualReceived / needed));
       barFill.style.width = (pct * 100) + "%";
 
-      if (received > 0) {
+      if (actualReceived > 0) {
         fractionPill.classList.add("has-received");
       } else {
         fractionPill.classList.remove("has-received");
       }
 
-      levelReceivedBox.textContent = formatCurrency(levelReceived);
+      // Section 5: Total Gift/Pledge Dollars Committed for this row
+      levelReceivedBox.textContent = formatCurrency(giftsTotalForRow);
     });
 
-    // alternating gradients
-    rows.forEach((row, index) => {
+    // Alternate gradients for rows
+    rowElems.forEach((row, index) => {
       const barWrapper = row.querySelector(".bar-wrapper");
       if (index % 2 === 0) {
         barWrapper.style.background =
@@ -943,12 +979,11 @@
       }
     });
 
+    // Planned total from all levels & triangle total
     plannedTotalEl.textContent = formatCurrency(plannedTotal);
     triangleTotalAmountEl.textContent = formatCurrency(plannedTotal);
 
     const goal = parseNumber(goalInput.value);
-
-    // TOTAL RECEIVED TO DATE and progress are driven by Individual Gifts
     const giftsTotal = getGiftsTotal();
 
     if (goal > 0) {
@@ -966,6 +1001,7 @@
       summaryProgressEl.style.width = "0%";
     }
 
+    // TOTAL RECEIVED TO DATE = sum of all gifts
     grandReceivedEl.textContent = formatCurrency(giftsTotal);
 
     const giftsText =
@@ -990,7 +1026,6 @@
   const indivPanel = document.getElementById("indivPanel");
 
   if (indivToggle && indivPanel) {
-    // collapsed by default
     indivPanel.style.maxHeight = "0px";
 
     indivToggle.addEventListener("click", () => {
@@ -1005,7 +1040,7 @@
     });
   }
 
-  // ADD GIFT BUTTON
+  // ADD GIFT BUTTON: prompt-driven, then auto-updates rows
   const addGiftBtn = document.getElementById("addGiftBtn");
   if (addGiftBtn) {
     addGiftBtn.addEventListener("click", () => {
