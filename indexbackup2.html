@@ -718,10 +718,19 @@
   }
 
   // Sum of all Individual Gifts in the table
-  // Sum of all Individual Gifts in the table
-function getGiftsTotal() {
-  return getGiftsFromDOM().reduce((sum, g) => sum + g.amount, 0);
-}
+  function getGiftsTotal() {
+    const tbody = document.getElementById("giftsTableBody");
+    if (!tbody) return 0;
+
+    let total = 0;
+    Array.from(tbody.querySelectorAll("tr")).forEach((row) => {
+      const amountCell = row.querySelector("td:nth-child(4)");
+      if (!amountCell) return;
+      const text = amountCell.textContent || "";
+      total += parseNumber(text);
+    });
+    return total;
+  }
 
   function addGiftRow(gift) {
   const tbody = document.getElementById("giftsTableBody");
@@ -753,22 +762,14 @@ function getGiftsTotal() {
       const neededInput = row.querySelector(".needed-input");
       const labelInput = row.querySelector(".label-input");
       return {
-        received: parseNumber(receivedInput.dataset.manualReceived ?? receivedInput.value),
+        received: parseNumber(receivedInput.value),
         needed: parseNumber(neededInput.value),
         label: labelInput.value || ""
       };
     });
 
-    const gifts = getGiftsFromDOM();
-
-return {
-  goal: parseNumber(goalInput.value),
-  title: headerTitleEl.textContent || "LEADERSHIP 200",
-  rows: rows,
-  gifts: gifts
-};
-
-const gifts = giftsRows.map((row) => {
+    const giftsRows = Array.from(document.querySelectorAll("#giftsTableBody tr"));
+    const gifts = giftsRows.map((row) => {
       const cells = row.querySelectorAll("td");
       return {
         donorName: (cells[1] && cells[1].textContent.trim()) || "",
@@ -878,15 +879,7 @@ const gifts = giftsRows.map((row) => {
     const labelInput = row.querySelector(".label-input");
     const deleteBtn = row.querySelector(".delete-btn");
 
-    // store the manual received value
-    receivedInput.dataset.manualReceived = received || 0;
-
-    receivedInput.addEventListener("input", () => {
-      receivedInput.dataset.manualReceived = receivedInput.value;
-      recalcAll();
-    });
-
-    [neededInput, labelInput].forEach((inp) => {
+    [receivedInput, neededInput, labelInput].forEach((inp) => {
       inp.addEventListener("input", recalcAll);
     });
 
@@ -900,130 +893,96 @@ const gifts = giftsRows.map((row) => {
   }
 
   function recalcAll() {
-  const rows = Array.from(rowsContainer.querySelectorAll(".level-row"));
-  const gifts = getGiftsFromDOM();
+    const rows = Array.from(rowsContainer.querySelectorAll(".level-row"));
+    let plannedTotal = 0;
+    let totalNeeded = 0;
 
-  // Build row info: DOM node + base amount from label
-  const rowInfos = rows.map((row) => {
-    const labelInput = row.querySelector(".label-input");
-    const baseAmount = extractGiftAmountFromLabel(labelInput.value);
-    return { row, baseAmount, gifts: [] };
-  });
+    rows.forEach((row) => {
+      const receivedInput = row.querySelector(".received-input");
+      const neededInput = row.querySelector(".needed-input");
+      const labelInput = row.querySelector(".label-input");
+      const barFill = row.querySelector(".bar-fill");
+      const fractionPill = row.querySelector(".fraction-pill");
+      const levelReceivedBox = row.querySelector(".level-received");
 
-  // Assign each gift to the correct row range:
-  // row i gets all gifts >= base[i] and < base[i-1] (top row has no upper bound)
-  for (const gift of gifts) {
-    for (let i = 0; i < rowInfos.length; i++) {
-      const base = rowInfos[i].baseAmount || 0;
-      const upper = i === 0 ? Infinity : (rowInfos[i - 1].baseAmount || Infinity);
-      if (gift.amount >= base && gift.amount < upper) {
-        rowInfos[i].gifts.push(gift);
-        break;
+      const received = parseNumber(receivedInput.value);
+      const needed = parseNumber(neededInput.value);
+      const giftAmount = extractGiftAmountFromLabel(labelInput.value);
+
+      const levelGoal = giftAmount * needed;
+      const levelReceived = giftAmount * received;
+
+      plannedTotal += levelGoal;
+      totalNeeded += needed;
+
+      let pct = 0;
+      if (needed > 0) pct = Math.max(0, Math.min(1, received / needed));
+      barFill.style.width = (pct * 100) + "%";
+
+      if (received > 0) {
+        fractionPill.classList.add("has-received");
+      } else {
+        fractionPill.classList.remove("has-received");
       }
-    }
-  }
 
-  let plannedTotal = 0;
-  let totalNeeded = 0;
+      levelReceivedBox.textContent = formatCurrency(levelReceived);
+    });
 
-  rowInfos.forEach((info) => {
-    const row = info.row;
-    const receivedInput = row.querySelector(".received-input");
-    const neededInput = row.querySelector(".needed-input");
-    const labelInput = row.querySelector(".label-input");
-    const barFill = row.querySelector(".bar-fill");
-    const fractionPill = row.querySelector(".fraction-pill");
-    const levelReceivedBox = row.querySelector(".level-received");
+    // alternating gradients
+    rows.forEach((row, index) => {
+      const barWrapper = row.querySelector(".bar-wrapper");
+      if (index % 2 === 0) {
+        barWrapper.style.background =
+          "linear-gradient(to right," +
+          " #0047b5 0%," +
+          " #4f7fd6 18%," +
+          " #ffffff 50%," +
+          " #4f7fd6 82%," +
+          " #0047b5 100%)";
+      } else {
+        barWrapper.style.background =
+          "linear-gradient(to right," +
+          " #c6001a 0%," +
+          " #ff7a7a 18%," +
+          " #ffffff 50%," +
+          " #ff7a7a 82%," +
+          " #c6001a 100%)";
+      }
+    });
 
-    const needed = parseNumber(neededInput.value);
-    const giftAmount = info.baseAmount || extractGiftAmountFromLabel(labelInput.value);
+    plannedTotalEl.textContent = formatCurrency(plannedTotal);
+    triangleTotalAmountEl.textContent = formatCurrency(plannedTotal);
 
-    // Planned dollars (theoretical target)
-    const levelGoal = giftAmount * needed;
-    plannedTotal += levelGoal;
-    totalNeeded += needed;
+    const goal = parseNumber(goalInput.value);
 
-    // Counts: manual + auto (from gifts in this row)
-    const manualReceived = parseNumber(
-      receivedInput.dataset.manualReceived ?? receivedInput.value
-    );
-    const autoReceived = info.gifts.length;
-    const totalReceivedCount = manualReceived + autoReceived;
+    // TOTAL RECEIVED TO DATE and progress are driven by Individual Gifts
+    const giftsTotal = getGiftsTotal();
 
-    // Show the combined count in the fraction UI
-    receivedInput.value = totalReceivedCount;
+    if (goal > 0) {
+      goalDisplaySmallEl.textContent = formatCurrency(goal);
+      const variance = plannedTotal - goal;
+      const sign = variance === 0 ? "" : variance > 0 ? "+ " : "- ";
+      varianceDisplayEl.textContent =
+        variance === 0 ? "On goal" : sign + formatCurrency(Math.abs(variance));
 
-    // Fill bar based on received / needed
-    let pct = 0;
-    if (needed > 0) pct = Math.max(0, Math.min(1, totalReceivedCount / needed));
-    barFill.style.width = pct * 100 + "%";
-
-    if (totalReceivedCount > 0) {
-      fractionPill.classList.add("has-received");
+      const pctGoal = Math.max(0, Math.min(1, giftsTotal / goal));
+      summaryProgressEl.style.width = (pctGoal * 100) + "%";
     } else {
-      fractionPill.classList.remove("has-received");
+      goalDisplaySmallEl.textContent = "$0";
+      varianceDisplayEl.textContent = "—";
+      summaryProgressEl.style.width = "0%";
     }
 
-    // Dollars committed for this row = sum of actual gifts in this row (Section 2)
-    const levelAmountReceived = info.gifts.reduce((sum, g) => sum + g.amount, 0);
-    levelReceivedBox.textContent = formatCurrency(levelAmountReceived);
-  });
+    grandReceivedEl.textContent = formatCurrency(giftsTotal);
 
-  // alternating gradients (same as before)
-  rows.forEach((row, index) => {
-    const barWrapper = row.querySelector(".bar-wrapper");
-    if (index % 2 === 0) {
-      barWrapper.style.background =
-        "linear-gradient(to right," +
-        " #0047b5 0%," +
-        " #4f7fd6 18%," +
-        " #ffffff 50%," +
-        " #4f7fd6 82%," +
-        " #0047b5 100%)";
-    } else {
-      barWrapper.style.background =
-        "linear-gradient(to right," +
-        " #c6001a 0%," +
-        " #ff7a7a 18%," +
-        " #ffffff 50%," +
-        " #ff7a7a 82%," +
-        " #c6001a 100%)";
-    }
-  });
+    const giftsText =
+      totalNeeded > 0
+        ? totalNeeded.toLocaleString("en-US") + " LEADERSHIP GIFTS/PLEDGES"
+        : "0 LEADERSHIP GIFTS/PLEDGES";
+    bottomBannerEl.textContent = giftsText;
 
-  // Planned total for the triangle and summary
-  plannedTotalEl.textContent = formatCurrency(plannedTotal);
-  triangleTotalAmountEl.textContent = formatCurrency(plannedTotal);
-
-  const goal = parseNumber(goalInput.value);
-  const giftsTotal = gifts.reduce((sum, g) => sum + g.amount, 0);
-
-  if (goal > 0) {
-    goalDisplaySmallEl.textContent = formatCurrency(goal);
-    const variance = plannedTotal - goal;
-    const sign = variance === 0 ? "" : variance > 0 ? "+ " : "- ";
-    varianceDisplayEl.textContent =
-      variance === 0 ? "On goal" : sign + formatCurrency(Math.abs(variance));
-
-    const pctGoal = Math.max(0, Math.min(1, giftsTotal / goal));
-    summaryProgressEl.style.width = pctGoal * 100 + "%";
-  } else {
-    goalDisplaySmallEl.textContent = "$0";
-    varianceDisplayEl.textContent = "—";
-    summaryProgressEl.style.width = "0%";
+    saveState();
   }
-
-  // TOTAL RECEIVED TO DATE (top-right)
-  grandReceivedEl.textContent = formatCurrency(giftsTotal);
-
-  const giftsText =
-    totalNeeded > 0
-      ? totalNeeded.toLocaleString("en-US") + " LEADERSHIP GIFTS/PLEDGES"
-      : "0 LEADERSHIP GIFTS/PLEDGES";
-  bottomBannerEl.textContent = giftsText;
-
-  saveState();
-}
 
   goalInput.addEventListener("input", recalcAll);
   titleInput.addEventListener("input", () => {
