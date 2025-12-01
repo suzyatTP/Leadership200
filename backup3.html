@@ -112,7 +112,7 @@
 
     .pyramid-section {
       position: relative;
-      padding: 26px 70px 140px; /* reduced bottom padding for less white space */
+      padding: 26px 70px 190px;
       overflow: hidden;
       align-items: center;
     }
@@ -168,7 +168,7 @@
       background: #00308b;
       color: #ffffff;
       padding: 9px 26px;
-      font-size: 25px;
+      font-size: 15px;
       letter-spacing: 0.16em;
       text-transform: uppercase;
       font-variant-numeric: tabular-nums;
@@ -630,10 +630,6 @@
           <span class="value" id="plannedTotal">$0</span>
         </div>
         <div class="summary-row">
-          <span class="label">Direct Mail Gifts Totaling</span>
-          <span class="value" id="directMailDisplay">$3,000,000</span>
-        </div>
-        <div class="summary-row">
           <span class="label">Campaign goal</span>
           <span class="value" id="goalDisplaySmall">$0</span>
         </div>
@@ -693,9 +689,6 @@
 </div>
 
 <script>
-  // Constant direct mail amount
-  const DIRECT_MAIL_TOTAL = 3000000;
-
   // ---------- BASIC UTILITIES ----------
   function parseNumber(raw) {
     if (raw === null || raw === undefined) return 0;
@@ -727,71 +720,22 @@
     return rows
       .map((row) => {
         const cells = row.querySelectorAll("td");
-        const purposeCell = cells[4];
-        let purposeText = "";
-        if (purposeCell) {
-          const span = purposeCell.querySelector(".gift-purpose");
-          purposeText = span ? span.textContent.trim() : purposeCell.textContent.trim();
-        }
         return {
           donorName: (cells[1] && cells[1].textContent.trim()) || "",
           idNumber: (cells[2] && cells[2].textContent.trim()) || "",
           amount: parseNumber(cells[3] && cells[3].textContent),
-          purpose: purposeText || "",
+          purpose: (cells[4] && cells[4].textContent.trim()) || "",
         };
       })
       .filter((g) => g.amount > 0);
   }
 
-  function renderGiftsTable(gifts) {
+  function addGiftRow(gift) {
     const tbody = document.getElementById("giftsTableBody");
     if (!tbody) return;
 
-    tbody.innerHTML = "";
-    gifts.forEach((g, idx) => {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${idx + 1}</td>
-        <td>${g.donorName || ""}</td>
-        <td>${g.idNumber || ""}</td>
-        <td>${formatCurrency(g.amount || 0)}</td>
-        <td>
-          <span class="gift-purpose">${g.purpose || ""}</span>
-          <button type="button"
-                  class="gift-delete-btn"
-                  data-index="${idx}"
-                  title="Remove gift"
-                  style="border:none;background:transparent;color:#b91c1c;font-size:12px;cursor:pointer;margin-left:6px;">
-            &times;
-          </button>
-        </td>
-      `;
-      tbody.appendChild(tr);
-    });
-
-    // Attach delete handlers
-    tbody.querySelectorAll(".gift-delete-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const idx = parseInt(btn.getAttribute("data-index"), 10);
-        let giftsNow = getGiftsFromDOM();
-        if (idx >= 0 && idx < giftsNow.length) {
-          giftsNow.splice(idx, 1);
-          renderGiftsTable(giftsNow);
-          recalcAll();
-        }
-      });
-    });
-
-    // keep panel height correct if open
-    const indivPanel = document.getElementById("indivPanel");
-    const indivToggle = document.getElementById("indivToggle");
-    if (indivPanel && indivToggle && indivToggle.classList.contains("open")) {
-      indivPanel.style.maxHeight = indivPanel.scrollHeight + "px";
-    }
-  }
-
-  function addGiftRow(gift) {
-    let gifts = getGiftsFromDOM();
+    // existing gifts + new one
+    const gifts = getGiftsFromDOM();
     if (gift && gift.amount) {
       gifts.push({
         donorName: gift.donorName || "",
@@ -800,8 +744,30 @@
         purpose: gift.purpose || "",
       });
     }
+
+    // sort high to low by amount
     gifts.sort((a, b) => b.amount - a.amount);
-    renderGiftsTable(gifts);
+
+    // rebuild tbody
+    tbody.innerHTML = "";
+    gifts.forEach((g, idx) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${idx + 1}</td>
+        <td>${g.donorName || ""}</td>
+        <td>${g.idNumber || ""}</td>
+        <td>${formatCurrency(g.amount || 0)}</td>
+        <td>${g.purpose || ""}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    // grow panel so button stays visible
+    const indivPanel = document.getElementById("indivPanel");
+    const indivToggle = document.getElementById("indivToggle");
+    if (indivPanel && indivToggle && indivToggle.classList.contains("open")) {
+      indivPanel.style.maxHeight = indivPanel.scrollHeight + "px";
+    }
   }
 
   function getGiftsTotal() {
@@ -924,7 +890,10 @@
       });
     });
 
-    renderGiftsTable(state.gifts || []);
+    const giftsTbody = document.getElementById("giftsTableBody");
+    giftsTbody.innerHTML = "";
+    (state.gifts || []).forEach(g => addGiftRow(g));
+
     recalcAll();
   }
 
@@ -962,7 +931,7 @@
       }
     }
 
-    let plannedTotalLevels = 0;
+    let plannedTotal = 0;
     let totalNeeded = 0;
 
     rowInfos.forEach((info) => {
@@ -977,8 +946,9 @@
       const needed = parseNumber(neededInput.value);
       const giftAmount = info.baseAmount || extractGiftAmountFromLabel(labelInput.value);
 
+      // theoretical planned total
       const levelGoal = giftAmount * needed;
-      plannedTotalLevels += levelGoal;
+      plannedTotal += levelGoal;
       totalNeeded += needed;
 
       const manualReceived = parseNumber(
@@ -1003,9 +973,6 @@
       levelReceivedBox.textContent = formatCurrency(levelAmountReceived);
     });
 
-    // Planned totals including direct mail
-    const plannedWithDirectMail = plannedTotalLevels + DIRECT_MAIL_TOTAL;
-
     // alternating gradients
     rows.forEach((row, index) => {
       const barWrapper = row.querySelector(".bar-wrapper");
@@ -1028,15 +995,15 @@
       }
     });
 
-    plannedTotalEl.textContent = formatCurrency(plannedWithDirectMail);
-    triangleTotalAmountEl.textContent = formatCurrency(plannedWithDirectMail);
+    plannedTotalEl.textContent = formatCurrency(plannedTotal);
+    triangleTotalAmountEl.textContent = formatCurrency(plannedTotal);
 
     const goal = parseNumber(goalInput.value);
     const giftsTotal = gifts.reduce((sum, g) => sum + g.amount, 0);
 
     if (goal > 0) {
       goalDisplaySmallEl.textContent = formatCurrency(goal);
-      const variance = plannedWithDirectMail - goal;
+      const variance = plannedTotal - goal;
       const sign = variance === 0 ? "" : variance > 0 ? "+ " : "- ";
       varianceDisplayEl.textContent =
         variance === 0 ? "On goal" : sign + formatCurrency(Math.abs(variance));
@@ -1136,12 +1103,6 @@
       console.error("Failed to load state, falling back to defaults", err);
       loadStateIntoDOM(defaultState);
     });
-
-  // Initialize constant display for direct mail
-  const directMailDisplayEl = document.getElementById("directMailDisplay");
-  if (directMailDisplayEl) {
-    directMailDisplayEl.textContent = formatCurrency(DIRECT_MAIL_TOTAL);
-  }
 </script>
 
 </body>
