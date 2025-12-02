@@ -223,11 +223,13 @@ def build_pdf(state):
     c.setFillColor(BEIGE)
     c.rect(0, strip_y - 24, width, 24, stroke=0, fill=1)
 
-    label_center_x = width - 125  # align label above the amount box
-    c.setFont("Times-Roman", 8.5)  # a bit larger for readability
+    # Label directly above the blue box, nudged slightly higher and a hair larger
+    label_center_x = width - 125
+    c.setFont("Times-Roman", 9)
     c.setFillColor(colors.black)
-    c.drawCentredString(label_center_x, strip_y - 4, "TOTAL RECEIVED TO DATE")
+    c.drawCentredString(label_center_x, strip_y + 1, "TOTAL RECEIVED TO DATE")
 
+    # Blue amount pill
     c.setFillColor(BLUE_DARK)
     c.roundRect(width - 210, strip_y - 21, 170, 18, 3, stroke=0, fill=1)
     c.setFillColor(colors.white)
@@ -274,17 +276,17 @@ def build_pdf(state):
         )
     c.restoreState()
 
-    # TOTAL text inside triangle – moved higher
+    # TOTAL text inside triangle – moved a bit higher
     c.setFont("Times-Roman", 9)
     c.setFillColor(colors.black)
-    c.drawCentredString(center, tri_top - 22, "TOTAL")
+    c.drawCentredString(center, tri_top - 15, "TOTAL")
     c.setFont("Times-Bold", 20)
-    c.drawCentredString(center, tri_top - 40, f"${goal:,.0f}")
+    c.drawCentredString(center, tri_top - 32, f"${goal:,.0f}")
 
     # ---------------- BARS ----------------
-    # Make rows taller & fonts larger
-    row_h = 24          # was 17
-    row_gap = 7         # was 5
+    # Taller rows & larger fonts
+    row_h = 24
+    row_gap = 7
     n_rows = len(rows)
     step = row_h + row_gap
 
@@ -371,7 +373,8 @@ def build_pdf(state):
     banner_w = width * 0.55
     banner_h = 24
     banner_x = (width - banner_w) / 2.0
-    banner_y = bars_top - n_rows * step - 24  # slightly tighter gap
+    # Move banner slightly closer to the last row
+    banner_y = bars_top - n_rows * step - 16
 
     c.setFillColor(BLUE_DARK)
     c.rect(banner_x, banner_y, banner_w, banner_h, stroke=0, fill=1)
