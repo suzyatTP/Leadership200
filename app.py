@@ -223,16 +223,17 @@ def build_pdf(state):
     c.setFillColor(BEIGE)
     c.rect(0, strip_y - 24, width, 24, stroke=0, fill=1)
 
-    c.setFont("Times-Roman", 7)
+    label_center_x = width - 125  # align label above the amount box
+    c.setFont("Times-Roman", 8.5)  # a bit larger for readability
     c.setFillColor(colors.black)
-    c.drawRightString(width - 230, strip_y - 4, "TOTAL RECEIVED TO DATE")
+    c.drawCentredString(label_center_x, strip_y - 4, "TOTAL RECEIVED TO DATE")
 
     c.setFillColor(BLUE_DARK)
     c.roundRect(width - 210, strip_y - 21, 170, 18, 3, stroke=0, fill=1)
     c.setFillColor(colors.white)
-    c.setFont("Times-Bold", 10)
+    c.setFont("Times-Bold", 11)
     c.drawCentredString(
-        width - 125,
+        label_center_x,
         strip_y - 17,
         f"${total_received:,.0f}",
     )
@@ -263,19 +264,27 @@ def build_pdf(state):
 
         yb = tri_base_y + t * tri_height
         c.setFillColor(col)
-        c.rect(center - tri_half_width, yb, tri_half_width * 2, tri_height / steps_tri + 1, stroke=0, fill=1)
+        c.rect(
+            center - tri_half_width,
+            yb,
+            tri_half_width * 2,
+            tri_height / steps_tri + 1,
+            stroke=0,
+            fill=1,
+        )
     c.restoreState()
 
-    # TOTAL text inside triangle
-    c.setFont("Times-Roman", 8)
+    # TOTAL text inside triangle – moved higher
+    c.setFont("Times-Roman", 9)
     c.setFillColor(colors.black)
-    c.drawCentredString(center, tri_top - 28, "TOTAL")
-    c.setFont("Times-Bold", 18)
-    c.drawCentredString(center, tri_top - 48, f"${goal:,.0f}")
+    c.drawCentredString(center, tri_top - 22, "TOTAL")
+    c.setFont("Times-Bold", 20)
+    c.drawCentredString(center, tri_top - 40, f"${goal:,.0f}")
 
     # ---------------- BARS ----------------
-    row_h = 17
-    row_gap = 5
+    # Make rows taller & fonts larger
+    row_h = 24          # was 17
+    row_gap = 7         # was 5
     n_rows = len(rows)
     step = row_h + row_gap
 
@@ -285,14 +294,14 @@ def build_pdf(state):
     bar_right = width - margin_x
     bar_width = bar_right - bar_left
 
-    # Top labels (more readable)
-    c.setFont("Times-Bold", 8.5)
+    # Top labels (bigger and clearer)
+    c.setFont("Times-Bold", 10)
     c.setFillColor(BLUE_DARK)
-    c.drawString(bar_left, bars_top + 30, "Gifts Received / Needed")
-    c.drawRightString(bar_right, bars_top + 30, "Total Gift / Pledge Dollars Committed")
+    c.drawString(bar_left, bars_top + 32, "Gifts Received / Needed")
+    c.drawRightString(bar_right, bars_top + 32, "Total Gift / Pledge Dollars Committed")
 
     # Draw each bar + text
-    c.setFont("Times-Roman", 7.4)
+    c.setFont("Times-Roman", 9)
     steps_bar = 140
 
     for i, r in enumerate(rows):
@@ -334,45 +343,45 @@ def build_pdf(state):
                 fill=1,
             )
 
-        # Left fraction text
+        # Left fraction text (bigger, vertically centered)
         c.setFillColor(colors.white)
         c.drawString(
             bar_left + 5,
-            yb + 5.5,
+            yb + 7.5,
             f"{r.get('received', 0)}/{r.get('needed', 0)}",
         )
 
-        # Center label (dark blue so it stands out)
+        # Center label (bigger)
         c.setFillColor(BLUE_DARK)
         c.drawCentredString(
             bar_left + bar_width / 2.0,
-            yb + 5.5,
+            yb + 7.5,
             r.get("label", ""),
         )
 
-        # Right amount (placeholder – committed dollars per row)
+        # Right amount
         c.setFillColor(colors.white)
         c.drawRightString(
             bar_right - 5,
-            yb + 5.5,
+            yb + 7.5,
             "$0",
         )
 
     # ---------------- BOTTOM BANNER ----------------
     banner_w = width * 0.55
-    banner_h = 22
+    banner_h = 24
     banner_x = (width - banner_w) / 2.0
-    banner_y = bars_top - n_rows * step - 35
+    banner_y = bars_top - n_rows * step - 24  # slightly tighter gap
 
     c.setFillColor(BLUE_DARK)
     c.rect(banner_x, banner_y, banner_w, banner_h, stroke=0, fill=1)
 
     total_gifts = sum(r.get("needed", 0) for r in rows)
     c.setFillColor(colors.white)
-    c.setFont("Times-Bold", 11)
+    c.setFont("Times-Bold", 12)
     c.drawCentredString(
         width / 2.0,
-        banner_y + 6,
+        banner_y + 7,
         f"{total_gifts:,} LEADERSHIP GIFTS/PLEDGES",
     )
 
