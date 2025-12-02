@@ -224,23 +224,28 @@ def generate_pdf():
     rows = state.get("rows", [])
     gifts = state.get("gifts", [])
 
+    # Brand colors (from your CSS)
+    BLUE       = (0/255.0,  71/255.0, 181/255.0)   # #0047b5
+    BLUE_DARK  = (0/255.0,  48/255.0, 139/255.0)   # #00308b
+    RED        = (198/255.,  0/255.0,  26/255.0)   # #c6001a
+    HEADER_RED = (159/255., 21/255.,  21/255.)     # #9f1515
+    TRI_LIGHT  = (213/255., 236/255., 255/255.)    # #d5ecff
+    TOP_BEIGE  = (0xfb/255., 0xf7/255., 0xf2/255.) # #fbf7f2
+
     # ---------- TOTALS ----------
-    # Gifts total (for dark-blue pill)
     gifts_total = sum(g["amount"] for g in gifts)
 
-    # Planned total + direct mail (for big "TOTAL")
     direct_mail = 3_000_000
     planned_total = 0
     for r in rows:
         gift_value = extract_amount(r["label"])
         planned_total += gift_value * r["needed"]
     triangle_total = planned_total + direct_mail
-
     total_needed = sum(r["needed"] for r in rows)
 
     # ---------- HEADER (match web) ----------
-    # Small line above title
-    c.setFillColorRGB(0, 0, 0)
+    # small line above title
+    c.setFillColorRGB(0.27, 0.27, 0.27)  # #444
     c.setFont("Times-Roman", 9)
     c.drawCentredString(
         width / 2,
@@ -248,17 +253,17 @@ def generate_pdf():
         "TURNING POINT WITH DR. DAVID JEREMIAH",
     )
 
-    # Main red title
-    c.setFillColorRGB(0.62, 0.0, 0.0)
+    # main red title
+    c.setFillColorRGB(*HEADER_RED)
     c.setFont("Times-Bold", 30)
     c.drawCentredString(width / 2, top_margin, title)
 
-    # Subtitle
+    # subtitle
     c.setFillColorRGB(0, 0, 0)
     c.setFont("Times-Roman", 10)
     c.drawCentredString(width / 2, top_margin - 18, "ACCELERATE YOUR VISION")
 
-    # Tagline
+    # tagline (italic)
     c.setFont("Times-Italic", 8.5)
     c.drawCentredString(
         width / 2,
@@ -266,15 +271,20 @@ def generate_pdf():
         "Delivering the Unchanging Word of God to an Ever-Changing World",
     )
 
-    # ---------- TOP STRIP: TOTAL RECEIVED TO DATE ----------
+    # ---------- TOP STRIP BACKGROUND & PILL ----------
+    strip_top = top_margin - 46
+    strip_height = 26
+    c.setFillColorRGB(*TOP_BEIGE)
+    c.rect(0, strip_top, width, strip_height, fill=1, stroke=0)
+
     pill_width = 160
     pill_height = 24
     pill_right = width - right_margin
     pill_left = pill_right - pill_width
-    pill_bottom = top_margin - 60
+    pill_bottom = strip_top + (strip_height - pill_height) / 2
     pill_top = pill_bottom + pill_height
 
-    # Label above pill
+    # label above pill
     c.setFillColorRGB(0, 0, 0)
     c.setFont("Times-Roman", 8)
     c.drawRightString(
@@ -283,8 +293,8 @@ def generate_pdf():
         "TOTAL RECEIVED TO DATE",
     )
 
-    # Dark blue pill
-    c.setFillColorRGB(0.0, 0.28, 0.71)
+    # dark blue pill
+    c.setFillColorRGB(*BLUE_DARK)
     c.roundRect(pill_left, pill_bottom, pill_width, pill_height, 4, fill=1, stroke=0)
 
     c.setFillColorRGB(1, 1, 1)
@@ -296,7 +306,7 @@ def generate_pdf():
     )
 
     # ---------- TRIANGLE BACKGROUND ----------
-    tri_top_y = top_margin - 90
+    tri_top_y = strip_top - 40
     tri_base_y = tri_top_y - 190
 
     path = c.beginPath()
@@ -305,10 +315,10 @@ def generate_pdf():
     path.lineTo(width * 0.94, tri_base_y)        # bottom right
     path.close()
 
-    c.setFillColorRGB(0.84, 0.92, 1.0)  # very light blue
+    c.setFillColorRGB(*TRI_LIGHT)
     c.drawPath(path, fill=1, stroke=0)
 
-    # "TOTAL" text inside triangle
+    # "TOTAL" and big amount inside triangle
     c.setFillColorRGB(0, 0, 0)
     c.setFont("Times-Roman", 9)
     c.drawCentredString(width / 2, tri_top_y - 32, "TOTAL")
@@ -340,7 +350,6 @@ def generate_pdf():
     c.setFont("Times-Roman", 7.5)
     y = bars_top_y
 
-    # Helper to get upper bound for gift range
     def upper_bound_for_index(idx):
         if idx == 0:
             return float("inf")
@@ -353,24 +362,24 @@ def generate_pdf():
         base_amt = extract_amount(label)
         upper_amt = upper_bound_for_index(idx)
 
-        # Amount actually received in this bracket
+        # dollars received in this bracket
         level_sum = sum(
             g["amount"]
             for g in gifts
             if base_amt <= g["amount"] < upper_amt
         )
 
-        # Background bar (alternating blue / red like on web)
+        # alternating blue/red rows
         if idx % 2 == 0:
-            c.setFillColorRGB(0.0, 0.28, 0.71)  # blue
+            c.setFillColorRGB(*BLUE)
         else:
-            c.setFillColorRGB(0.78, 0.04, 0.19)  # red
+            c.setFillColorRGB(*RED)
         c.rect(bar_left, y, bar_right - bar_left, bar_height, fill=1, stroke=0)
 
-        # Text in white on top of bar
+        # white text on bar
         c.setFillColorRGB(1, 1, 1)
 
-        # left: "received/needed"
+        # left: received/needed
         c.drawString(bar_left + 4, y + 4, f"{rec}/{needed}")
 
         # center: label
@@ -387,11 +396,11 @@ def generate_pdf():
 
     # ---------- BOTTOM BLUE BANNER ----------
     banner_height = 20
-    banner_width = 300
+    banner_width = 360
     banner_y = y - 26
     banner_x = (width - banner_width) / 2
 
-    c.setFillColorRGB(0.0, 0.28, 0.71)
+    c.setFillColorRGB(*BLUE_DARK)
     c.rect(banner_x, banner_y, banner_width, banner_height, fill=1, stroke=0)
 
     c.setFillColorRGB(1, 1, 1)
@@ -406,7 +415,6 @@ def generate_pdf():
     c.showPage()
     c.save()
 
-    # Open in a new tab (not forced download)
     return send_file(
         pdf_path,
         mimetype="application/pdf",
