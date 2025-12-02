@@ -231,30 +231,58 @@ def _blend(c1, c2, t):
 
 def _bar_color_at(t, is_blue, BLUE, BLUE_MID, RED, RED_LIGHT):
     """
-    Approximate the CSS gradients used in the HTML.
-    Blue: #0047b5 -> #4f7fd6 -> white -> #4f7fd6 -> #0047b5
-    Red:  #c6001a -> #ff7a7a -> white -> #ff7a7a -> #c6001a
+    New gradient: removes white completely.
+    Now matches the HTML bar gradients:
+
+    Blue:
+      #0047b5 (blue-dark)
+      → #4f7fd6 (blue-mid)
+      → #8fb3ea (blue-light)
+      → #4f7fd6 (blue-mid)
+      → #0047b5 (blue-dark)
+
+    Red:
+      #c6001a (red-dark)
+      → #ff7a7a (red-mid)
+      → #ffb3b3 (red-light)
+      → #ff7a7a (red-mid)
+      → #c6001a (red-dark)
     """
+
+    # Clamp
     t = max(0.0, min(1.0, float(t)))
-    WHITE = colors.white
+
     if is_blue:
-        if t <= 0.18:
-            return _blend(BLUE, BLUE_MID, t / 0.18)
-        elif t <= 0.5:
-            return _blend(BLUE_MID, WHITE, (t - 0.18) / (0.5 - 0.18))
-        elif t <= 0.82:
-            return _blend(WHITE, BLUE_MID, (t - 0.5) / (0.82 - 0.5))
+        BLUE_LIGHT = colors.HexColor("#8fb3ea")
+
+        if t <= 0.25:
+            # dark → mid
+            return _blend(BLUE, BLUE_MID, t / 0.25)
+        elif t <= 0.50:
+            # mid → light
+            return _blend(BLUE_MID, BLUE_LIGHT, (t - 0.25) / 0.25)
+        elif t <= 0.75:
+            # light → mid
+            return _blend(BLUE_LIGHT, BLUE_MID, (t - 0.50) / 0.25)
         else:
-            return _blend(BLUE_MID, BLUE, (t - 0.82) / (1.0 - 0.82))
+            # mid → dark
+            return _blend(BLUE_MID, BLUE, (t - 0.75) / 0.25)
+
     else:
-        if t <= 0.18:
-            return _blend(RED, RED_LIGHT, t / 0.18)
-        elif t <= 0.5:
-            return _blend(RED_LIGHT, WHITE, (t - 0.18) / (0.5 - 0.18))
-        elif t <= 0.82:
-            return _blend(WHITE, RED_LIGHT, (t - 0.5) / (0.82 - 0.5))
+        RED_LIGHTER = colors.HexColor("#ffb3b3")
+
+        if t <= 0.25:
+            # red-dark → red-mid
+            return _blend(RED, RED_LIGHT, t / 0.25)
+        elif t <= 0.50:
+            # red-mid → red-light
+            return _blend(RED_LIGHT, RED_LIGHTER, (t - 0.25) / 0.25)
+        elif t <= 0.75:
+            # red-light → red-mid
+            return _blend(RED_LIGHTER, RED_LIGHT, (t - 0.50) / 0.25)
         else:
-            return _blend(RED_LIGHT, RED, (t - 0.82) / (1.0 - 0.82))
+            # red-mid → red-dark
+            return _blend(RED_LIGHT, RED, (t - 0.75) / 0.25)
 
 
 def _draw_bar_gradient(c, x, y, w, h, is_blue, BLUE, BLUE_MID, RED, RED_LIGHT, steps=140):
