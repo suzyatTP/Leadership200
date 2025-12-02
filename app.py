@@ -266,18 +266,19 @@ def generate_pdf():
     TOP_BEIGE = (0xFB / 255.0, 0xF7 / 255.0, 0xF2 / 255.0)  # #fbf7f2
 
     BLUE_PALETTE = [
-        (0.0, BLUE),
-        (0.18, BLUE_MID),
-        (0.50, (1.0, 1.0, 1.0)),
-        (0.82, BLUE_MID),
-        (1.0, BLUE),
+    (0.0,  BLUE),       # #0047b5 left edge
+    (0.18, BLUE_MID),   # #4f7fd6
+    (0.50, (0.93, 0.96, 1.0)),  # very light blue instead of pure white
+    (0.82, BLUE_MID),
+    (1.0,  BLUE),
     ]
+
     RED_PALETTE = [
-        (0.0, RED),
-        (0.18, RED_MID),
-        (0.50, (1.0, 1.0, 1.0)),
-        (0.82, RED_MID),
-        (1.0, RED),
+    (0.0,  RED),        # #c6001a left edge
+    (0.18, RED_MID),    # #ff7a7a
+    (0.50, (1.0, 0.93, 0.93)),  # very light red instead of pure white
+    (0.82, RED_MID),
+    (1.0,  RED),
     ]
 
     # ---------- TOTALS (including fixed $3M direct mail) ----------
@@ -343,7 +344,7 @@ def generate_pdf():
 
     # ---------- TRIANGLE BACKGROUND ----------
     tri_top_y = strip_top - 40
-    tri_base_y = tri_top_y - 190  # vertical size of triangle
+    tri_base_y = tri_top_y - 210  # vertical size of triangle
 
     path = c.beginPath()
     path.moveTo(width / 2, tri_top_y)  # top
@@ -375,13 +376,13 @@ def generate_pdf():
     c.drawString(left_margin, bars_top_y + 20, "Gifts Received/Needed")
     c.drawRightString(
         width - right_margin,
-        bars_top_y + 20,
+        bars_top_y + 40,
         "Total Gift/Pledge Dollars Committed",
     )
 
     bar_left = left_margin
     bar_right = width - right_margin
-    bar_height = 16
+    bar_height = 18
     bar_gap = 6
 
     c.setFont("Times-Roman", 7.5)
