@@ -195,7 +195,7 @@ def build_pdf(state):
     margin_x = 50
 
     # ---------------- HEADER ----------------
-    y = height - 36
+    y = height - 32
     c.setFillColor(colors.black)
     c.setFont("Times-Roman", 8)
     c.drawCentredString(center, y, "TURNING POINT WITH DR. DAVID JEREMIAH")
