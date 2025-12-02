@@ -279,9 +279,9 @@ def build_pdf(state):
     # TOTAL text inside triangle – moved a bit higher
     c.setFont("Times-Roman", 9)
     c.setFillColor(colors.black)
-    c.drawCentredString(center, tri_top - 15, "TOTAL")
+    c.drawCentredString(center, tri_top - 8, "TOTAL")
     c.setFont("Times-Bold", 20)
-    c.drawCentredString(center, tri_top - 32, f"${goal:,.0f}")
+    c.drawCentredString(center, tri_top - 25, f"${goal:,.0f}")
 
     # ---------------- BARS ----------------
     # Taller rows & larger fonts
