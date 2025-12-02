@@ -194,13 +194,13 @@ def debug_db():
         return f"DB ERROR: {e}", 500
 
 # ====== PDF GENERATION ROUTE =======================================
-from reportlab.lib.pagesizes import letter
+from reportlab.lib.pagesizes import letter, landscape
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import inch
 
 @app.route("/generate-pdf")
 def generate_pdf():
-    # Fetch latest state
+    # Fetch latest state from DB
     conn = get_conn()
     cur = conn.cursor()
     cur.execute("SELECT state_json FROM leadership_state ORDER BY id LIMIT 1;")
@@ -210,82 +210,209 @@ def generate_pdf():
 
     state = row[0] if isinstance(row[0], dict) else json.loads(row[0])
 
-    # Create PDF file
+    # ---------- PAGE SETUP (LANDSCAPE) ----------
     pdf_path = "/tmp/leadership_report.pdf"
-    c = canvas.Canvas(pdf_path, pagesize=letter)
-    width, height = letter
+    page_size = landscape(letter)
+    c = canvas.Canvas(pdf_path, pagesize=page_size)
+    width, height = page_size
 
-    # MARGINS
-    left = 0.75 * inch
-    top = height - 0.75 * inch
+    left_margin = 0.75 * inch
+    right_margin = 0.75 * inch
+    top_margin = height - 0.9 * inch
 
-    # --- HEADER --------------------------------------------------
-    c.setFont("Times-Bold", 26)
-    c.setFillColorRGB(0.62, 0.0, 0.0)  # red
-    c.drawCentredString(width/2, top, state.get("title","LEADERSHIP 200"))
-
-    c.setFont("Times-Roman", 10)
-    c.setFillColorRGB(0,0,0)
-    c.drawCentredString(width/2, top - 22, "ACCELERATE YOUR VISION")
-
-    # --- TOTAL RECEIVED TO DATE ----------------------------------
-    gifts_total = sum(g["amount"] for g in state.get("gifts", []))
-    c.setFont("Times-Bold", 14)
-    c.setFillColorRGB(0,0,0)
-    c.drawRightString(width - 0.75*inch, top - 55, "TOTAL RECEIVED TO DATE:")
-
-    c.setFillColorRGB(0, 0.2, 0.6)  # dark blue
-    c.setFont("Times-Bold", 20)
-    c.drawRightString(width - 0.75*inch, top - 75, "${:,}".format(int(gifts_total)))
-
-    # --- PYRAMID TOTAL (Planned + Direct Mail) --------------------
+    title = state.get("title", "LEADERSHIP 200")
     rows = state.get("rows", [])
-    direct_mail = 3000000
+    gifts = state.get("gifts", [])
+
+    # ---------- TOTALS ----------
+    # Gifts total (for dark-blue pill)
+    gifts_total = sum(g["amount"] for g in gifts)
+
+    # Planned total + direct mail (for big "TOTAL")
+    direct_mail = 3_000_000
     planned_total = 0
     for r in rows:
         gift_value = extract_amount(r["label"])
         planned_total += gift_value * r["needed"]
-
     triangle_total = planned_total + direct_mail
 
-    c.setFillColorRGB(0,0,0)
-    c.setFont("Times-Bold", 18)
-    c.drawCentredString(width/2, top - 130, "TOTAL")
+    total_needed = sum(r["needed"] for r in rows)
 
-    c.setFont("Times-Bold", 26)
-    c.drawCentredString(width/2, top - 155, "${:,}".format(int(triangle_total)))
+    # ---------- HEADER (match web) ----------
+    # Small line above title
+    c.setFillColorRGB(0, 0, 0)
+    c.setFont("Times-Roman", 9)
+    c.drawCentredString(
+        width / 2,
+        top_margin + 24,
+        "TURNING POINT WITH DR. DAVID JEREMIAH",
+    )
 
-    # --- LEVEL ROWS (simple text version for PDF) -----------------
-    y = top - 200
-    c.setFont("Times-Roman", 11)
+    # Main red title
+    c.setFillColorRGB(0.62, 0.0, 0.0)
+    c.setFont("Times-Bold", 30)
+    c.drawCentredString(width / 2, top_margin, title)
 
-    for r in rows:
+    # Subtitle
+    c.setFillColorRGB(0, 0, 0)
+    c.setFont("Times-Roman", 10)
+    c.drawCentredString(width / 2, top_margin - 18, "ACCELERATE YOUR VISION")
+
+    # Tagline
+    c.setFont("Times-Italic", 8.5)
+    c.drawCentredString(
+        width / 2,
+        top_margin - 32,
+        "Delivering the Unchanging Word of God to an Ever-Changing World",
+    )
+
+    # ---------- TOP STRIP: TOTAL RECEIVED TO DATE ----------
+    pill_width = 160
+    pill_height = 24
+    pill_right = width - right_margin
+    pill_left = pill_right - pill_width
+    pill_bottom = top_margin - 60
+    pill_top = pill_bottom + pill_height
+
+    # Label above pill
+    c.setFillColorRGB(0, 0, 0)
+    c.setFont("Times-Roman", 8)
+    c.drawRightString(
+        pill_right,
+        pill_top + 6,
+        "TOTAL RECEIVED TO DATE",
+    )
+
+    # Dark blue pill
+    c.setFillColorRGB(0.0, 0.28, 0.71)
+    c.roundRect(pill_left, pill_bottom, pill_width, pill_height, 4, fill=1, stroke=0)
+
+    c.setFillColorRGB(1, 1, 1)
+    c.setFont("Times-Bold", 12)
+    c.drawCentredString(
+        (pill_left + pill_right) / 2,
+        pill_bottom + 7,
+        "${:,}".format(int(gifts_total)),
+    )
+
+    # ---------- TRIANGLE BACKGROUND ----------
+    tri_top_y = top_margin - 90
+    tri_base_y = tri_top_y - 190
+
+    path = c.beginPath()
+    path.moveTo(width / 2, tri_top_y)            # top
+    path.lineTo(width * 0.06, tri_base_y)        # bottom left
+    path.lineTo(width * 0.94, tri_base_y)        # bottom right
+    path.close()
+
+    c.setFillColorRGB(0.84, 0.92, 1.0)  # very light blue
+    c.drawPath(path, fill=1, stroke=0)
+
+    # "TOTAL" text inside triangle
+    c.setFillColorRGB(0, 0, 0)
+    c.setFont("Times-Roman", 9)
+    c.drawCentredString(width / 2, tri_top_y - 32, "TOTAL")
+
+    c.setFont("Times-Bold", 20)
+    c.drawCentredString(
+        width / 2,
+        tri_top_y - 52,
+        "${:,}".format(int(triangle_total)),
+    )
+
+    # ---------- ROW LABELS ----------
+    bars_top_y = tri_base_y - 16
+    c.setFillColorRGB(0, 0, 0)
+    c.setFont("Times-Italic", 7)
+    c.drawString(left_margin, bars_top_y + 20, "Gifts Received/Needed")
+    c.drawRightString(
+        width - right_margin,
+        bars_top_y + 20,
+        "Total Gift/Pledge Dollars Committed",
+    )
+
+    # ---------- LEVEL BARS ----------
+    bar_left = left_margin
+    bar_right = width - right_margin
+    bar_height = 16
+    bar_gap = 6
+
+    c.setFont("Times-Roman", 7.5)
+    y = bars_top_y
+
+    # Helper to get upper bound for gift range
+    def upper_bound_for_index(idx):
+        if idx == 0:
+            return float("inf")
+        return extract_amount(rows[idx - 1]["label"])
+
+    for idx, r in enumerate(rows):
         label = r["label"]
         needed = r["needed"]
         rec = r["received"]
-
-        c.setFillColorRGB(0,0,0)
-        c.drawString(left, y, f"{rec}/{needed}")
-
-        c.drawCentredString(width/2, y, label)
-
-        # Amount received per row (sum of gifts in this bracket)
         base_amt = extract_amount(label)
+        upper_amt = upper_bound_for_index(idx)
+
+        # Amount actually received in this bracket
         level_sum = sum(
             g["amount"]
-            for g in state.get("gifts", [])
-            if base_amt <= g["amount"] < (extract_amount(rows[rows.index(r)-1]["label"]) if rows.index(r)>0 else 999999999)
+            for g in gifts
+            if base_amt <= g["amount"] < upper_amt
         )
-        c.drawRightString(width - 0.75*inch, y, "${:,}".format(int(level_sum)))
 
-        y -= 22
-        if y < 60:
-            c.showPage()
-            y = top - 100
+        # Background bar (alternating blue / red like on web)
+        if idx % 2 == 0:
+            c.setFillColorRGB(0.0, 0.28, 0.71)  # blue
+        else:
+            c.setFillColorRGB(0.78, 0.04, 0.19)  # red
+        c.rect(bar_left, y, bar_right - bar_left, bar_height, fill=1, stroke=0)
 
+        # Text in white on top of bar
+        c.setFillColorRGB(1, 1, 1)
+
+        # left: "received/needed"
+        c.drawString(bar_left + 4, y + 4, f"{rec}/{needed}")
+
+        # center: label
+        c.drawCentredString((bar_left + bar_right) / 2, y + 4, label)
+
+        # right: amount
+        c.drawRightString(
+            bar_right - 4,
+            y + 4,
+            "${:,}".format(int(level_sum)),
+        )
+
+        y -= (bar_height + bar_gap)
+
+    # ---------- BOTTOM BLUE BANNER ----------
+    banner_height = 20
+    banner_width = 300
+    banner_y = y - 26
+    banner_x = (width - banner_width) / 2
+
+    c.setFillColorRGB(0.0, 0.28, 0.71)
+    c.rect(banner_x, banner_y, banner_width, banner_height, fill=1, stroke=0)
+
+    c.setFillColorRGB(1, 1, 1)
+    c.setFont("Times-Bold", 10)
+    c.drawCentredString(
+        width / 2,
+        banner_y + 5,
+        f"{total_needed:,} LEADERSHIP GIFTS/PLEDGES",
+    )
+
+    # ---------- FINISH ----------
+    c.showPage()
     c.save()
-    return send_file(pdf_path, as_attachment=True, download_name="Leadership200.pdf")
-# ==================================================================
+
+    # Open in a new tab (not forced download)
+    return send_file(
+        pdf_path,
+        mimetype="application/pdf",
+        as_attachment=False,
+        download_name="Leadership200.pdf",
+    )
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
