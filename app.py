@@ -193,274 +193,358 @@ def debug_db():
 
 
 # ====== PDF GENERATION ROUTE =======================================
-from reportlab.lib.pagesizes import letter, landscape  # noqa: E402
-from reportlab.pdfgen import canvas  # noqa: E402
-from reportlab.lib.units import inch  # noqa: E402
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter, landscape
+from reportlab.lib import colors
+from io import BytesIO
+import re
 
+def _parse_number(value):
+    if value is None:
+        return 0.0
+    if isinstance(value, (int, float)):
+        return float(value)
+    s = str(value)
+    s = re.sub(r"[^0-9.\-]", "", s)
+    try:
+        return float(s)
+    except ValueError:
+        return 0.0
 
-def draw_gradient_bar(c, x, y, w, h, palette, steps=120):
+def _gift_base_from_label(label):
+    """Extract the base gift amount from a row label like '1 Gift of $25,000,000'."""
+    if not label:
+        return 0.0
+    m = re.search(r"\$([\d,]+(?:\.\d+)?)", label)
+    if not m:
+        return 0.0
+    return _parse_number(m.group(1))
+
+def _blend(c1, c2, t):
+    """Linear blend of two reportlab Color objects."""
+    t = max(0.0, min(1.0, float(t)))
+    r = c1.red + (c2.red - c1.red) * t
+    g = c1.green + (c2.green - c1.green) * t
+    b = c1.blue + (c2.blue - c1.blue) * t
+    return colors.Color(r, g, b)
+
+def _bar_color_at(t, is_blue, BLUE, BLUE_MID, RED, RED_LIGHT):
     """
-    Draw a horizontal gradient bar using multiple thin rectangles.
-
-    palette = [(pos0, (r,g,b)), (pos1, (r,g,b)), ...] where pos in [0,1].
+    Approximate the CSS gradients used in the HTML:
+      Blue: #0047b5 -> #4f7fd6 -> white -> #4f7fd6 -> #0047b5
+      Red:  #c6001a -> #ff7a7a -> white -> #ff7a7a -> #c6001a
     """
-    for i in range(steps):
-        t = i / float(steps)
-        # find segment of palette that contains t
-        r = g = b = 0.0
-        for j in range(len(palette) - 1):
-            p0, col0 = palette[j]
-            p1, col1 = palette[j + 1]
-            if t >= p0 and t <= p1:
-                if p1 == p0:
-                    u = 0.0
-                else:
-                    u = (t - p0) / (p1 - p0)
-                r = col0[0] + (col1[0] - col0[0]) * u
-                g = col0[1] + (col1[1] - col0[1]) * u
-                b = col0[2] + (col1[2] - col0[2]) * u
-                break
+    t = max(0.0, min(1.0, float(t)))
+    WHITE = colors.white
+    if is_blue:
+        if t <= 0.18:
+            # BLUE -> BLUE_MID
+            return _blend(BLUE, BLUE_MID, t / 0.18)
+        elif t <= 0.5:
+            # BLUE_MID -> WHITE
+            return _blend(BLUE_MID, WHITE, (t - 0.18) / (0.5 - 0.18))
+        elif t <= 0.82:
+            # WHITE -> BLUE_MID
+            return _blend(WHITE, BLUE_MID, (t - 0.5) / (0.82 - 0.5))
         else:
-            # fallback to last color
-            r, g, b = palette[-1][1]
+            # BLUE_MID -> BLUE
+            return _blend(BLUE_MID, BLUE, (t - 0.82) / (1.0 - 0.82))
+    else:
+        # red bar
+        if t <= 0.18:
+            return _blend(RED, RED_LIGHT, t / 0.18)
+        elif t <= 0.5:
+            return _blend(RED_LIGHT, WHITE, (t - 0.18) / (0.5 - 0.18))
+        elif t <= 0.82:
+            return _blend(WHITE, RED_LIGHT, (t - 0.5) / (0.82 - 0.5))
+        else:
+            return _blend(RED_LIGHT, RED, (t - 0.82) / (1.0 - 0.82))
 
-        c.setFillColorRGB(r, g, b)
-        x0 = x + (w * i / float(steps))
-        c.rect(x0, y, w / float(steps) + 0.5, h, fill=1, stroke=0)
+def _draw_bar_gradient(c, x, y, w, h, is_blue, BLUE, BLUE_MID, RED, RED_LIGHT, steps=140):
+    """Draw a horizontal gradient bar, matching the HTML look."""
+    step_w = w / float(steps)
+    for i in range(steps):
+        t = i / float(steps - 1)
+        col = _bar_color_at(t, is_blue, BLUE, BLUE_MID, RED, RED_LIGHT)
+        c.setFillColor(col)
+        c.rect(x + i * step_w, y, step_w + 0.5, h, stroke=0, fill=1)
 
+def _triangle_color_at(t, TRI_LIGHT, TRI_LIGHT2, TRI_LIGHT3):
+    """
+    Very soft vertical gradient, similar to the HTML triangle:
+    #d5ecff -> #d5ecff -> #e3f3ff -> #edf8ff
+    """
+    t = max(0.0, min(1.0, float(t)))
+    if t <= 0.55:
+        return TRI_LIGHT
+    elif t <= 0.82:
+        return _blend(TRI_LIGHT, TRI_LIGHT2, (t - 0.55) / (0.82 - 0.55))
+    else:
+        return _blend(TRI_LIGHT2, TRI_LIGHT3, (t - 0.82) / (1.0 - 0.82))
 
-@app.route("/generate-pdf")
+def _draw_triangle_gradient(c, width, top_y, height_px, TRI_LIGHT, TRI_LIGHT2, TRI_LIGHT3, steps=220):
+    """
+    Draw the large background triangle with a soft vertical gradient,
+    clipped to the triangle shape so rows can sit on top.
+    """
+    base_y = top_y - height_px
+    c.saveState()
+    path = c.beginPath()
+    path.moveTo(width / 2.0, top_y)
+    path.lineTo(width, base_y)
+    path.lineTo(0, base_y)
+    path.close()
+    c.clipPath(path, stroke=0, fill=0)
+
+    for i in range(steps):
+        tt = i / float(steps - 1)
+        col = _triangle_color_at(tt, TRI_LIGHT, TRI_LIGHT2, TRI_LIGHT3)
+        band_y = base_y + (top_y - base_y) * tt
+        band_h = (top_y - base_y) / float(steps)
+        c.setFillColor(col)
+        c.rect(0, band_y, width, band_h + 1, stroke=0, fill=1)
+
+    c.restoreState()
+
+@app.route("/api/generate-pdf", methods=["POST"])
 def generate_pdf():
-    # Fetch latest state from DB
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("SELECT state_json FROM leadership_state ORDER BY id LIMIT 1;")
-    row = cur.fetchone()
-    cur.close()
-    conn.close()
+    """
+    Generate a PDF for only the top section of the page, trying to match the
+    HTML layout (colors, gradients, and typography) as closely as possible.
+    """
+    data = request.get_json(force=True)
 
-    state = row[0] if isinstance(row[0], dict) else json.loads(row[0])
+    goal = _parse_number(data.get("goal", 0))
+    title = data.get("title") or "LEADERSHIP 200"
+    rows_raw = data.get("rows", []) or []
+    gifts_raw = data.get("gifts", []) or []
 
-    # ---------- PAGE SETUP (LANDSCAPE) ----------
-    pdf_path = "/tmp/leadership_report.pdf"
-    page_size = landscape(letter)
-    c = canvas.Canvas(pdf_path, pagesize=page_size)
-    width, height = page_size
+    # --- Rebuild row-level totals based on gifts, using the
+    #     same "ranges between levels" logic as the front-end ---
+    gifts = []
+    for g in gifts_raw:
+        amt = _parse_number(g.get("amount"))
+        if amt > 0:
+            gifts.append(amt)
+    gifts.sort(reverse=True)
+    total_received_to_date = sum(gifts)
 
-    left_margin = 0.75 * inch
-    right_margin = 0.75 * inch
-    top_margin = height - 0.9 * inch
+    # Build row info: base gift amount & buckets
+    row_infos = []
+    for r in rows_raw:
+        base = _gift_base_from_label(r.get("label", ""))
+        row_infos.append(
+            {
+                "label": r.get("label", ""),
+                "received": int(_parse_number(r.get("received", 0))),
+                "needed": int(_parse_number(r.get("needed", 0))),
+                "base": base,
+                "gifts": [],
+            }
+        )
 
-    title = state.get("title", "LEADERSHIP 200")
-    rows = state.get("rows", [])
-    gifts = state.get("gifts", [])
+    # Sort by base descending so row 0 is the highest dollar level
+    row_infos.sort(key=lambda ri: ri["base"], reverse=True)
 
-    # Brand colors (synced with CSS) :contentReference[oaicite:1]{index=1}
-    BLUE = (0 / 255.0, 71 / 255.0, 181 / 255.0)  # #0047b5
-    BLUE_MID = (79 / 255.0, 127 / 255.0, 214 / 255.0)  # #4f7fd6
-    BLUE_DARK = (0 / 255.0, 48 / 255.0, 139 / 255.0)  # #00308b
-    RED = (198 / 255.0, 0 / 255.0, 26 / 255.0)  # #c6001a
-    RED_MID = (255 / 255.0, 122 / 255.0, 122 / 255.0)  # #ff7a7a
-    HEADER_RED = (159 / 255.0, 21 / 255.0, 21 / 255.0)  # #9f1515
-    TRI_LIGHT = (213 / 255.0, 236 / 255.0, 255 / 255.0)  # #d5ecff
-    TOP_BEIGE = (0xFB / 255.0, 0xF7 / 255.0, 0xF2 / 255.0)  # #fbf7f2
+    # Assign gifts into ranges [base_i, base_{i-1})
+    for g_amt in gifts:
+        for i, ri in enumerate(row_infos):
+            base = ri["base"] or 0
+            upper = row_infos[i - 1]["base"] if i > 0 else float("inf")
+            if g_amt >= base and g_amt < upper:
+                ri["gifts"].append(g_amt)
+                break
 
-    BLUE_PALETTE = [
-    (0.0,  BLUE),       # #0047b5 left edge
-    (0.18, BLUE_MID),   # #4f7fd6
-    (0.50, (0.93, 0.96, 1.0)),  # very light blue instead of pure white
-    (0.82, BLUE_MID),
-    (1.0,  BLUE),
-    ]
+    for ri in row_infos:
+        ri["auto_count"] = len(ri["gifts"])
+        ri["auto_total"] = sum(ri["gifts"])
+        # If "received" is still 0, fall back to how many gifts landed here.
+        if ri["received"] <= 0 and ri["auto_count"] > 0:
+            ri["received"] = ri["auto_count"]
 
-    RED_PALETTE = [
-    (0.0,  RED),        # #c6001a left edge
-    (0.18, RED_MID),    # #ff7a7a
-    (0.50, (1.0, 0.93, 0.93)),  # very light red instead of pure white
-    (0.82, RED_MID),
-    (1.0,  RED),
-    ]
+    # --- Prepare PDF canvas ---
+    buf = BytesIO()
+    c = canvas.Canvas(buf, pagesize=landscape(letter))
+    width, height = landscape(letter)
 
-    # ---------- TOTALS (including fixed $3M direct mail) ----------
-    DIRECT_MAIL = 3_000_000
-    gifts_total = sum(g["amount"] for g in gifts)
+    # Brand colors to match HTML
+    BLUE = colors.HexColor("#0047b5")
+    BLUE_DARK = colors.HexColor("#00308b")
+    BLUE_MID = colors.HexColor("#4f7fd6")
+    RED = colors.HexColor("#c6001a")
+    RED_LIGHT = colors.HexColor("#ff7a7a")
+    TRI_LIGHT = colors.HexColor("#d5ecff")
+    TRI_LIGHT2 = colors.HexColor("#e3f3ff")
+    TRI_LIGHT3 = colors.HexColor("#edf8ff")
+    BEIGE = colors.HexColor("#f3ede5")
 
-    planned_total_levels = 0
-    for r in rows:
-        gift_value = extract_amount(r["label"])
-        planned_total_levels += gift_value * r["needed"]
-    triangle_total = planned_total_levels + DIRECT_MAIL
-    total_needed = sum(r["needed"] for r in rows)
+    margin_x = 50
+    header_center_x = width / 2.0
 
-    # ---------- HEADER ----------
-    c.setFillColorRGB(0.27, 0.27, 0.27)
-    c.setFont("Times-Roman", 9)
+    # --- Header text stack ---
+    y = height - 36
+    c.setFillColor(colors.black)
+    c.setFont("Times-Roman", 8)
     c.drawCentredString(
-        width / 2, top_margin + 24, "TURNING POINT WITH DR. DAVID JEREMIAH"
+        header_center_x, y, "TURNING POINT WITH DR. DAVID JEREMIAH"
     )
 
-    c.setFillColorRGB(*HEADER_RED)
-    c.setFont("Times-Bold", 30)
-    c.drawCentredString(width / 2, top_margin, title)
+    y -= 20
+    c.setFont("Times-Bold", 26)
+    c.setFillColor(colors.HexColor("#9f1515"))
+    c.drawCentredString(header_center_x, y, title.upper())
 
-    c.setFillColorRGB(0, 0, 0)
-    c.setFont("Times-Roman", 10)
-    c.drawCentredString(width / 2, top_margin - 18, "ACCELERATE YOUR VISION")
+    y -= 16
+    c.setFont("Times-Roman", 9)
+    c.setFillColor(colors.black)
+    c.drawCentredString(header_center_x, y, "ACCELERATE YOUR VISION")
 
-    c.setFont("Times-Italic", 8.5)
+    y -= 14
+    c.setFont("Times-Italic", 7.5)
     c.drawCentredString(
-        width / 2,
-        top_margin - 32,
+        header_center_x,
+        y,
         "Delivering the Unchanging Word of God to an Ever-Changing World",
     )
 
-    # ---------- TOP STRIP / PILL ----------
-    strip_top = top_margin - 46
-    strip_height = 26
-    c.setFillColorRGB(*TOP_BEIGE)
-    c.rect(0, strip_top, width, strip_height, fill=1, stroke=0)
+    # --- Top beige strip with TOTAL RECEIVED TO DATE box ---
+    strip_top = y - 8
+    strip_h = 24
+    c.setFillColor(BEIGE)
+    c.rect(0, strip_top - strip_h, width, strip_h, stroke=0, fill=1)
 
-    pill_width = 160
-    pill_height = 24
-    pill_right = width - right_margin
-    pill_left = pill_right - pill_width
-    pill_bottom = strip_top + (strip_height - pill_height) / 2
-    pill_top = pill_bottom + pill_height
+    label_x = width - margin_x - 170
+    label_y = strip_top - 7
+    c.setFont("Times-Roman", 7)
+    c.setFillColor(colors.black)
+    c.drawString(label_x, label_y + 14, "TOTAL RECEIVED TO DATE")
 
-    c.setFillColorRGB(0, 0, 0)
-    c.setFont("Times-Roman", 8)
-    c.drawRightString(pill_right, pill_top + 6, "TOTAL RECEIVED TO DATE")
+    pill_w = 170
+    pill_h = 19
+    pill_x = width - margin_x - pill_w
+    pill_y = strip_top - strip_h + 3
+    c.setFillColor(BLUE_DARK)
+    c.roundRect(pill_x, pill_y, pill_w, pill_h, 3, stroke=0, fill=1)
 
-    c.setFillColorRGB(*BLUE_DARK)
-    c.roundRect(pill_left, pill_bottom, pill_width, pill_height, 4, fill=1, stroke=0)
-
-    c.setFillColorRGB(1, 1, 1)
-    c.setFont("Times-Bold", 12)
-    c.drawCentredString(
-        (pill_left + pill_right) / 2,
-        pill_bottom + 7,
-        "${:,}".format(int(gifts_total)),
-    )
-
-    # ---------- TRIANGLE BACKGROUND ----------
-    tri_top_y = strip_top - 40
-    tri_base_y = tri_top_y - 210  # vertical size of triangle
-
-    path = c.beginPath()
-    path.moveTo(width / 2, tri_top_y)  # top
-    path.lineTo(width * 0.06, tri_base_y)  # bottom left
-    path.lineTo(width * 0.94, tri_base_y)  # bottom right
-    path.close()
-
-    c.setFillColorRGB(*TRI_LIGHT)
-    c.drawPath(path, fill=1, stroke=0)
-
-    # TOTAL text inside triangle
-    c.setFillColorRGB(0, 0, 0)
-    c.setFont("Times-Roman", 9)
-    c.drawCentredString(width / 2, tri_top_y - 32, "TOTAL")
-
-    c.setFont("Times-Bold", 20)
-    c.drawCentredString(
-        width / 2,
-        tri_top_y - 52,
-        "${:,}".format(int(triangle_total)),
-    )
-
-    # ---------- ROW LABELS & BARS (NOW INSIDE TRIANGLE) ----------
-    # move bars up so they sit on top of the triangle instead of below it
-    bars_top_y = tri_base_y + 16  # was tri_base_y - 16
-
-    c.setFillColorRGB(0, 0, 0)
-    c.setFont("Times-Italic", 7)
-    c.drawString(left_margin, bars_top_y + 20, "Gifts Received/Needed")
-    c.drawRightString(
-        width - right_margin,
-        bars_top_y + 40,
-        "Total Gift/Pledge Dollars Committed",
-    )
-
-    bar_left = left_margin
-    bar_right = width - right_margin
-    bar_height = 18
-    bar_gap = 6
-
-    c.setFont("Times-Roman", 7.5)
-    y = bars_top_y
-
-    def upper_bound_for_index(idx):
-        if idx == 0:
-            return float("inf")
-        return extract_amount(rows[idx - 1]["label"])
-
-    for idx, r in enumerate(rows):
-        label = r["label"]
-        needed = r["needed"]
-        rec = r["received"]
-        base_amt = extract_amount(label)
-        upper_amt = upper_bound_for_index(idx)
-
-        level_sum = sum(
-            g["amount"]
-            for g in gifts
-            if base_amt <= g["amount"] < upper_amt
-        )
-
-        # draw gradient bar
-        if idx % 2 == 0:
-            draw_gradient_bar(
-                c,
-                bar_left,
-                y,
-                bar_right - bar_left,
-                bar_height,
-                BLUE_PALETTE,
-            )
-        else:
-            draw_gradient_bar(
-                c,
-                bar_left,
-                y,
-                bar_right - bar_left,
-                bar_height,
-                RED_PALETTE,
-            )
-
-        # overlay white text
-        c.setFillColorRGB(1, 1, 1)
-
-        # left: received/needed
-        c.drawString(bar_left + 4, y + 4, f"{rec}/{needed}")
-
-        # center: label
-        c.drawCentredString((bar_left + bar_right) / 2, y + 4, label)
-
-        # right: amount
-        c.drawRightString(
-            bar_right - 4,
-            y + 4,
-            "${:,}".format(int(level_sum)),
-        )
-
-        y -= bar_height + bar_gap
-
-    # ---------- BOTTOM BLUE BANNER ----------
-    banner_height = 20
-    banner_width = 360
-    banner_y = y - 26
-    banner_x = (width - banner_width) / 2
-
-    c.setFillColorRGB(*BLUE_DARK)
-    c.rect(banner_x, banner_y, banner_width, banner_height, fill=1, stroke=0)
-
-    c.setFillColorRGB(1, 1, 1)
     c.setFont("Times-Bold", 10)
+    c.setFillColor(colors.white)
     c.drawCentredString(
-        width / 2,
-        banner_y + 5,
-        f"{total_needed:,} LEADERSHIP GIFTS/PLEDGES",
+        pill_x + pill_w / 2.0,
+        pill_y + 5.5,
+        "${:,.0f}".format(total_received_to_date),
     )
 
+    # --- BIG TRIANGLE BACKGROUND ---
+    tri_top_y = strip_top - 48
+    tri_height = 260  # tuned to visually match HTML
+    _draw_triangle_gradient(
+        c,
+        width,
+        tri_top_y,
+        tri_height,
+        TRI_LIGHT,
+        TRI_LIGHT2,
+        TRI_LIGHT3,
+    )
+
+    # TOTAL label & amount inside triangle
+    c.setFillColor(colors.black)
+    c.setFont("Times-Roman", 8)
+    c.drawCentredString(width / 2.0, tri_top_y - 26, "TOTAL")
+    c.setFont("Times-Bold", 18)
+    c.drawCentredString(
+        width / 2.0, tri_top_y - 46, "${:,.0f}".format(goal)
+    )
+
+    # --- ROW LABELS ABOVE BARS ---
+    bars_area_height = tri_height * 0.60
+    bars_top_y = (tri_top_y - tri_height) + bars_area_height + 10
+    row_h = 17
+    row_gap = 5
+
+    labels_y = bars_top_y + row_h + 8
+    c.setFont("Times-Italic", 7)
+    c.setFillColor(colors.black)
+    c.drawString(margin_x, labels_y, "Gifts Received/Needed")
+    c.drawRightString(
+        width - margin_x, labels_y, "Total Gift/Pledge Dollars Committed"
+    )
+
+    bar_left = margin_x
+    bar_right = width - margin_x
+    bar_width = bar_right - bar_left
+
+    # --- DRAW EACH LEVEL ROW ---
+    c.setFont("Times-Roman", 7.5)
+    for idx, ri in enumerate(row_infos):
+        y_bar = bars_top_y - idx * (row_h + row_gap)
+        is_blue = (idx % 2 == 0)
+
+        # Gradient bar background
+        _draw_bar_gradient(
+            c,
+            bar_left,
+            y_bar,
+            bar_width,
+            row_h,
+            is_blue,
+            BLUE,
+            BLUE_MID,
+            RED,
+            RED_LIGHT,
+        )
+
+        # Left "0/1" style fraction
+        c.setFillColor(colors.white)
+        frac_text = f"{ri['received']}/{ri['needed']}" if ri["needed"] else f"{ri['received']}"
+        c.drawString(bar_left + 5, y_bar + 5, frac_text)
+
+        # Center label
+        c.setFillColor(colors.white)
+        c.drawCentredString(
+            bar_left + bar_width / 2.0,
+            y_bar + 5,
+            ri["label"],
+        )
+
+        # Right committed amount from gifts bucket
+        c.setFillColor(colors.white)
+        committed = ri.get("auto_total", 0.0)
+        c.drawRightString(
+            bar_right - 6,
+            y_bar + 5,
+            "${:,.0f}".format(committed),
+        )
+
+    # --- Bottom banner ---
+    banner_w = width * 0.55
+    banner_h = 22
+    banner_x = (width - banner_w) / 2.0
+    last_row_y = bars_top_y - (len(row_infos) - 1) * (row_h + row_gap)
+    banner_y = last_row_y - 40
+
+    c.setFillColor(BLUE_DARK)
+    c.rect(banner_x, banner_y, banner_w, banner_h, stroke=0, fill=1)
+    c.setFillColor(colors.white)
+    c.setFont("Times-Bold", 11)
+    total_gifts = sum(ri.get("needed", 0) for ri in row_infos)
+    banner_text = f"{total_gifts:,} LEADERSHIP GIFTS/PLEDGES"
+    c.drawCentredString(
+        banner_x + banner_w / 2.0,
+        banner_y + 6,
+        banner_text,
+    )
+
+    c.showPage()
+    c.save()
+    buf.seek(0)
+    return send_file(
+        buf,
+        mimetype="application/pdf",
+        as_attachment=False,
+        download_name="Leadership200.pdf",
+    )
+    
     # ---------- FINISH ----------
     c.showPage()
     c.save()
