@@ -231,58 +231,34 @@ def _blend(c1, c2, t):
 
 def _bar_color_at(t, is_blue, BLUE, BLUE_MID, RED, RED_LIGHT):
     """
-    New gradient: removes white completely.
-    Now matches the HTML bar gradients:
+    Gradient that matches the HTML bars, with a bright white center.
 
     Blue:
-      #0047b5 (blue-dark)
-      → #4f7fd6 (blue-mid)
-      → #8fb3ea (blue-light)
-      → #4f7fd6 (blue-mid)
-      → #0047b5 (blue-dark)
-
+      #0047b5 → #4f7fd6 → #ffffff → #4f7fd6 → #0047b5
     Red:
-      #c6001a (red-dark)
-      → #ff7a7a (red-mid)
-      → #ffb3b3 (red-light)
-      → #ff7a7a (red-mid)
-      → #c6001a (red-dark)
+      #c6001a → #ff7a7a → #ffffff → #ff7a7a → #c6001a
     """
-
-    # Clamp
     t = max(0.0, min(1.0, float(t)))
+    WHITE = colors.white
 
     if is_blue:
-        BLUE_LIGHT = colors.HexColor("#8fb3ea")
-
-        if t <= 0.25:
-            # dark → mid
-            return _blend(BLUE, BLUE_MID, t / 0.25)
+        if t <= 0.18:
+            return _blend(BLUE, BLUE_MID, t / 0.18)
         elif t <= 0.50:
-            # mid → light
-            return _blend(BLUE_MID, BLUE_LIGHT, (t - 0.25) / 0.25)
-        elif t <= 0.75:
-            # light → mid
-            return _blend(BLUE_LIGHT, BLUE_MID, (t - 0.50) / 0.25)
+            return _blend(BLUE_MID, WHITE, (t - 0.18) / (0.50 - 0.18))
+        elif t <= 0.82:
+            return _blend(WHITE, BLUE_MID, (t - 0.50) / (0.82 - 0.50))
         else:
-            # mid → dark
-            return _blend(BLUE_MID, BLUE, (t - 0.75) / 0.25)
-
+            return _blend(BLUE_MID, BLUE, (t - 0.82) / (1.0 - 0.82))
     else:
-        RED_LIGHTER = colors.HexColor("#ffb3b3")
-
-        if t <= 0.25:
-            # red-dark → red-mid
-            return _blend(RED, RED_LIGHT, t / 0.25)
+        if t <= 0.18:
+            return _blend(RED, RED_LIGHT, t / 0.18)
         elif t <= 0.50:
-            # red-mid → red-light
-            return _blend(RED_LIGHT, RED_LIGHTER, (t - 0.25) / 0.25)
-        elif t <= 0.75:
-            # red-light → red-mid
-            return _blend(RED_LIGHTER, RED_LIGHT, (t - 0.50) / 0.25)
+            return _blend(RED_LIGHT, WHITE, (t - 0.18) / (0.50 - 0.18))
+        elif t <= 0.82:
+            return _blend(WHITE, RED_LIGHT, (t - 0.50) / (0.82 - 0.50))
         else:
-            # red-mid → red-dark
-            return _blend(RED_LIGHT, RED, (t - 0.75) / 0.25)
+            return _blend(RED_LIGHT, RED, (t - 0.82) / (1.0 - 0.82))
 
 
 def _draw_bar_gradient(c, x, y, w, h, is_blue, BLUE, BLUE_MID, RED, RED_LIGHT, steps=140):
@@ -446,7 +422,7 @@ def _build_pdf_from_state(state):
 
     # Triangle
     tri_top_y = strip_top - 48
-    tri_height = 260
+    tri_height = 300  # slightly taller so bars sit better inside
     _draw_triangle_gradient(
         c,
         width,
@@ -456,6 +432,7 @@ def _build_pdf_from_state(state):
         TRI_LIGHT2,
         TRI_LIGHT3,
     )
+    base_y = tri_top_y - tri_height
 
     # Total text inside triangle
     c.setFillColor(colors.black)
@@ -464,13 +441,18 @@ def _build_pdf_from_state(state):
     c.setFont("Times-Bold", 18)
     c.drawCentredString(width / 2.0, tri_top_y - 46, "${:,.0f}".format(goal))
 
-    # Bars area
-    bars_area_height = tri_height * 0.60
-    bars_top_y = (tri_top_y - tri_height) + bars_area_height + 10
+    # Bars geometry (better spacing top & bottom)
     row_h = 17
     row_gap = 5
+    n_rows = max(1, len(row_infos))
+    step = row_h + row_gap
 
-    labels_y = bars_top_y + row_h + 8
+    bottom_gap = 10  # space between triangle base and bottom of last bar
+    last_bottom = base_y + bottom_gap
+    last_top = last_bottom + row_h
+    bars_top_y = last_top + (n_rows - 1) * step
+
+    labels_y = bars_top_y + row_h - 2
     c.setFont("Times-Italic", 7)
     c.setFillColor(colors.black)
     c.drawString(margin_x, labels_y, "Gifts Received/Needed")
@@ -501,7 +483,7 @@ def _build_pdf_from_state(state):
             RED_LIGHT,
         )
 
-        # left fraction
+        # left fraction (white)
         c.setFillColor(colors.white)
         if ri["needed"]:
             frac_text = f"{ri['received']}/{ri['needed']}"
@@ -509,12 +491,13 @@ def _build_pdf_from_state(state):
             frac_text = f"{ri['received']}"
         c.drawString(bar_left + 5, y_bar + 5, frac_text)
 
-        # center label
-        c.setFillColor(colors.white)
+        # center label – TRUE dark blue so it pops
+        c.setFillColor(BLUE_DARK)
         c.drawCentredString(bar_left + bar_width / 2.0, y_bar + 5, ri["label"])
 
-        # right committed
+        # right committed – white
         committed = ri.get("auto_total", 0.0)
+        c.setFillColor(colors.white)
         c.drawRightString(
             bar_right - 6,
             y_bar + 5,
