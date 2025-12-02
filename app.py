@@ -1,19 +1,28 @@
 import os
 import json
+import re
+from io import BytesIO
+
 from flask import Flask, send_file, request, jsonify
 import psycopg2
 
-# Render gives you this via the Environment variable
+# PDF libs
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter, landscape
+from reportlab.lib import colors
+
+# -------------------------------------------------------------------
+# DATABASE / STATE
+# -------------------------------------------------------------------
+
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 
 def extract_amount(label):
-    """Extracts dollar value from label string like '1 Gift of $25,000,000'"""
+    """Extracts dollar value from label string like '1 Gift of $25,000,000'."""
     if not label:
         return 0
-    import re
-
-    m = re.search(r"\$([\d,]+)", label)
+    m = re.search(r"\$([\d,]+)", label or "")
     if not m:
         return 0
     return int(m.group(1).replace(",", ""))
@@ -51,7 +60,6 @@ def ensure_table():
     conn = get_conn()
     cur = conn.cursor()
 
-    # 1) Make sure table exists
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS leadership_state (
@@ -62,7 +70,6 @@ def ensure_table():
         """
     )
 
-    # 2) Make sure there is at least one row
     cur.execute("SELECT id FROM leadership_state ORDER BY id LIMIT 1;")
     row = cur.fetchone()
 
@@ -78,10 +85,9 @@ def ensure_table():
     conn.close()
 
 
-# Serve index.html from the project root
 app = Flask(__name__)
 
-# Initialize DB
+# Initialize DB once on startup
 ensure_table()
 
 from flask import send_from_directory  # noqa: E402
@@ -106,7 +112,6 @@ def get_state():
             return jsonify(row[0])
         return jsonify(json.loads(row[0]))
 
-    # If no row existed, reinsert default
     state = default_state()
     conn = get_conn()
     cur = conn.cursor()
@@ -126,7 +131,6 @@ def merge_state_with_template(incoming):
     only allow 'received' + gifts (and optional goal/title) to change.
     """
     base = default_state()
-
     if not incoming:
         return base
 
@@ -134,7 +138,6 @@ def merge_state_with_template(incoming):
     base["title"] = incoming.get("title", base["title"])
 
     incoming_rows = incoming.get("rows") or []
-
     for i, row in enumerate(base["rows"]):
         if i < len(incoming_rows):
             inc = incoming_rows[i] or {}
@@ -142,7 +145,6 @@ def merge_state_with_template(incoming):
                 row["received"] = inc["received"]
 
     base["gifts"] = incoming.get("gifts", base["gifts"])
-
     return base
 
 
@@ -192,24 +194,21 @@ def debug_db():
         return f"DB ERROR: {e}", 500
 
 
-# ====== PDF GENERATION ROUTE =======================================
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import letter, landscape
-from reportlab.lib import colors
-from io import BytesIO
-import re
+# -------------------------------------------------------------------
+# PDF HELPERS
+# -------------------------------------------------------------------
 
 def _parse_number(value):
     if value is None:
         return 0.0
     if isinstance(value, (int, float)):
         return float(value)
-    s = str(value)
-    s = re.sub(r"[^0-9.\-]", "", s)
+    s = re.sub(r"[^0-9.\-]", "", str(value))
     try:
         return float(s)
     except ValueError:
         return 0.0
+
 
 def _gift_base_from_label(label):
     """Extract the base gift amount from a row label like '1 Gift of $25,000,000'."""
@@ -220,6 +219,7 @@ def _gift_base_from_label(label):
         return 0.0
     return _parse_number(m.group(1))
 
+
 def _blend(c1, c2, t):
     """Linear blend of two reportlab Color objects."""
     t = max(0.0, min(1.0, float(t)))
@@ -228,29 +228,25 @@ def _blend(c1, c2, t):
     b = c1.blue + (c2.blue - c1.blue) * t
     return colors.Color(r, g, b)
 
+
 def _bar_color_at(t, is_blue, BLUE, BLUE_MID, RED, RED_LIGHT):
     """
-    Approximate the CSS gradients used in the HTML:
-      Blue: #0047b5 -> #4f7fd6 -> white -> #4f7fd6 -> #0047b5
-      Red:  #c6001a -> #ff7a7a -> white -> #ff7a7a -> #c6001a
+    Approximate the CSS gradients used in the HTML.
+    Blue: #0047b5 -> #4f7fd6 -> white -> #4f7fd6 -> #0047b5
+    Red:  #c6001a -> #ff7a7a -> white -> #ff7a7a -> #c6001a
     """
     t = max(0.0, min(1.0, float(t)))
     WHITE = colors.white
     if is_blue:
         if t <= 0.18:
-            # BLUE -> BLUE_MID
             return _blend(BLUE, BLUE_MID, t / 0.18)
         elif t <= 0.5:
-            # BLUE_MID -> WHITE
             return _blend(BLUE_MID, WHITE, (t - 0.18) / (0.5 - 0.18))
         elif t <= 0.82:
-            # WHITE -> BLUE_MID
             return _blend(WHITE, BLUE_MID, (t - 0.5) / (0.82 - 0.5))
         else:
-            # BLUE_MID -> BLUE
             return _blend(BLUE_MID, BLUE, (t - 0.82) / (1.0 - 0.82))
     else:
-        # red bar
         if t <= 0.18:
             return _blend(RED, RED_LIGHT, t / 0.18)
         elif t <= 0.5:
@@ -259,6 +255,7 @@ def _bar_color_at(t, is_blue, BLUE, BLUE_MID, RED, RED_LIGHT):
             return _blend(WHITE, RED_LIGHT, (t - 0.5) / (0.82 - 0.5))
         else:
             return _blend(RED_LIGHT, RED, (t - 0.82) / (1.0 - 0.82))
+
 
 def _draw_bar_gradient(c, x, y, w, h, is_blue, BLUE, BLUE_MID, RED, RED_LIGHT, steps=140):
     """Draw a horizontal gradient bar, matching the HTML look."""
@@ -269,11 +266,9 @@ def _draw_bar_gradient(c, x, y, w, h, is_blue, BLUE, BLUE_MID, RED, RED_LIGHT, s
         c.setFillColor(col)
         c.rect(x + i * step_w, y, step_w + 0.5, h, stroke=0, fill=1)
 
+
 def _triangle_color_at(t, TRI_LIGHT, TRI_LIGHT2, TRI_LIGHT3):
-    """
-    Very soft vertical gradient, similar to the HTML triangle:
-    #d5ecff -> #d5ecff -> #e3f3ff -> #edf8ff
-    """
+    """Soft vertical gradient: #d5ecff -> #e3f3ff -> #edf8ff."""
     t = max(0.0, min(1.0, float(t)))
     if t <= 0.55:
         return TRI_LIGHT
@@ -282,11 +277,9 @@ def _triangle_color_at(t, TRI_LIGHT, TRI_LIGHT2, TRI_LIGHT3):
     else:
         return _blend(TRI_LIGHT2, TRI_LIGHT3, (t - 0.82) / (1.0 - 0.82))
 
+
 def _draw_triangle_gradient(c, width, top_y, height_px, TRI_LIGHT, TRI_LIGHT2, TRI_LIGHT3, steps=220):
-    """
-    Draw the large background triangle with a soft vertical gradient,
-    clipped to the triangle shape so rows can sit on top.
-    """
+    """Draw the large background triangle with a soft vertical gradient."""
     base_y = top_y - height_px
     c.saveState()
     path = c.beginPath()
@@ -306,21 +299,15 @@ def _draw_triangle_gradient(c, width, top_y, height_px, TRI_LIGHT, TRI_LIGHT2, T
 
     c.restoreState()
 
-@app.route("/api/generate-pdf", methods=["POST"])
-def generate_pdf():
-    """
-    Generate a PDF for only the top section of the page, trying to match the
-    HTML layout (colors, gradients, and typography) as closely as possible.
-    """
-    data = request.get_json(force=True)
 
-    goal = _parse_number(data.get("goal", 0))
-    title = data.get("title") or "LEADERSHIP 200"
-    rows_raw = data.get("rows", []) or []
-    gifts_raw = data.get("gifts", []) or []
+def _build_pdf_from_state(state):
+    """Core function: builds the Leadership 200 top-section PDF and returns a BytesIO buffer."""
+    goal = _parse_number(state.get("goal", 0))
+    title = state.get("title") or "LEADERSHIP 200"
+    rows_raw = state.get("rows", []) or []
+    gifts_raw = state.get("gifts", []) or []
 
-    # --- Rebuild row-level totals based on gifts, using the
-    #     same "ranges between levels" logic as the front-end ---
+    # Normalize gifts
     gifts = []
     for g in gifts_raw:
         amt = _parse_number(g.get("amount"))
@@ -329,7 +316,7 @@ def generate_pdf():
     gifts.sort(reverse=True)
     total_received_to_date = sum(gifts)
 
-    # Build row info: base gift amount & buckets
+    # Row info
     row_infos = []
     for r in rows_raw:
         base = _gift_base_from_label(r.get("label", ""))
@@ -343,10 +330,10 @@ def generate_pdf():
             }
         )
 
-    # Sort by base descending so row 0 is the highest dollar level
+    # Highest dollar row first
     row_infos.sort(key=lambda ri: ri["base"], reverse=True)
 
-    # Assign gifts into ranges [base_i, base_{i-1})
+    # Bucket gifts into rows based on ranges
     for g_amt in gifts:
         for i, ri in enumerate(row_infos):
             base = ri["base"] or 0
@@ -356,18 +343,16 @@ def generate_pdf():
                 break
 
     for ri in row_infos:
-        ri["auto_count"] = len(ri["gifts"])
         ri["auto_total"] = sum(ri["gifts"])
-        # If "received" is still 0, fall back to how many gifts landed here.
-        if ri["received"] <= 0 and ri["auto_count"] > 0:
-            ri["received"] = ri["auto_count"]
+        auto_count = len(ri["gifts"])
+        if ri["received"] <= 0 and auto_count > 0:
+            ri["received"] = auto_count
 
-    # --- Prepare PDF canvas ---
     buf = BytesIO()
     c = canvas.Canvas(buf, pagesize=landscape(letter))
     width, height = landscape(letter)
 
-    # Brand colors to match HTML
+    # Colors from HTML
     BLUE = colors.HexColor("#0047b5")
     BLUE_DARK = colors.HexColor("#00308b")
     BLUE_MID = colors.HexColor("#4f7fd6")
@@ -381,13 +366,11 @@ def generate_pdf():
     margin_x = 50
     header_center_x = width / 2.0
 
-    # --- Header text stack ---
+    # Header stack
     y = height - 36
     c.setFillColor(colors.black)
     c.setFont("Times-Roman", 8)
-    c.drawCentredString(
-        header_center_x, y, "TURNING POINT WITH DR. DAVID JEREMIAH"
-    )
+    c.drawCentredString(header_center_x, y, "TURNING POINT WITH DR. DAVID JEREMIAH")
 
     y -= 20
     c.setFont("Times-Bold", 26)
@@ -407,17 +390,16 @@ def generate_pdf():
         "Delivering the Unchanging Word of God to an Ever-Changing World",
     )
 
-    # --- Top beige strip with TOTAL RECEIVED TO DATE box ---
+    # Top beige strip + received pill
     strip_top = y - 8
     strip_h = 24
     c.setFillColor(BEIGE)
     c.rect(0, strip_top - strip_h, width, strip_h, stroke=0, fill=1)
 
     label_x = width - margin_x - 170
-    label_y = strip_top - 7
     c.setFont("Times-Roman", 7)
     c.setFillColor(colors.black)
-    c.drawString(label_x, label_y + 14, "TOTAL RECEIVED TO DATE")
+    c.drawString(label_x, strip_top - 4, "TOTAL RECEIVED TO DATE")
 
     pill_w = 170
     pill_h = 19
@@ -434,9 +416,9 @@ def generate_pdf():
         "${:,.0f}".format(total_received_to_date),
     )
 
-    # --- BIG TRIANGLE BACKGROUND ---
+    # Triangle
     tri_top_y = strip_top - 48
-    tri_height = 260  # tuned to visually match HTML
+    tri_height = 260
     _draw_triangle_gradient(
         c,
         width,
@@ -447,16 +429,14 @@ def generate_pdf():
         TRI_LIGHT3,
     )
 
-    # TOTAL label & amount inside triangle
+    # Total text inside triangle
     c.setFillColor(colors.black)
     c.setFont("Times-Roman", 8)
     c.drawCentredString(width / 2.0, tri_top_y - 26, "TOTAL")
     c.setFont("Times-Bold", 18)
-    c.drawCentredString(
-        width / 2.0, tri_top_y - 46, "${:,.0f}".format(goal)
-    )
+    c.drawCentredString(width / 2.0, tri_top_y - 46, "${:,.0f}".format(goal))
 
-    # --- ROW LABELS ABOVE BARS ---
+    # Bars area
     bars_area_height = tri_height * 0.60
     bars_top_y = (tri_top_y - tri_height) + bars_area_height + 10
     row_h = 17
@@ -474,13 +454,12 @@ def generate_pdf():
     bar_right = width - margin_x
     bar_width = bar_right - bar_left
 
-    # --- DRAW EACH LEVEL ROW ---
+    # Draw each bar row
     c.setFont("Times-Roman", 7.5)
     for idx, ri in enumerate(row_infos):
         y_bar = bars_top_y - idx * (row_h + row_gap)
         is_blue = (idx % 2 == 0)
 
-        # Gradient bar background
         _draw_bar_gradient(
             c,
             bar_left,
@@ -494,21 +473,19 @@ def generate_pdf():
             RED_LIGHT,
         )
 
-        # Left "0/1" style fraction
+        # left fraction
         c.setFillColor(colors.white)
-        frac_text = f"{ri['received']}/{ri['needed']}" if ri["needed"] else f"{ri['received']}"
+        if ri["needed"]:
+            frac_text = f"{ri['received']}/{ri['needed']}"
+        else:
+            frac_text = f"{ri['received']}"
         c.drawString(bar_left + 5, y_bar + 5, frac_text)
 
-        # Center label
+        # center label
         c.setFillColor(colors.white)
-        c.drawCentredString(
-            bar_left + bar_width / 2.0,
-            y_bar + 5,
-            ri["label"],
-        )
+        c.drawCentredString(bar_left + bar_width / 2.0, y_bar + 5, ri["label"])
 
-        # Right committed amount from gifts bucket
-        c.setFillColor(colors.white)
+        # right committed
         committed = ri.get("auto_total", 0.0)
         c.drawRightString(
             bar_right - 6,
@@ -516,12 +493,12 @@ def generate_pdf():
             "${:,.0f}".format(committed),
         )
 
-    # --- Bottom banner ---
+    # Bottom banner
     banner_w = width * 0.55
     banner_h = 22
-    banner_x = (width - banner_w) / 2.0
     last_row_y = bars_top_y - (len(row_infos) - 1) * (row_h + row_gap)
     banner_y = last_row_y - 40
+    banner_x = (width - banner_w) / 2.0
 
     c.setFillColor(BLUE_DARK)
     c.rect(banner_x, banner_y, banner_w, banner_h, stroke=0, fill=1)
@@ -529,33 +506,65 @@ def generate_pdf():
     c.setFont("Times-Bold", 11)
     total_gifts = sum(ri.get("needed", 0) for ri in row_infos)
     banner_text = f"{total_gifts:,} LEADERSHIP GIFTS/PLEDGES"
-    c.drawCentredString(
-        banner_x + banner_w / 2.0,
-        banner_y + 6,
-        banner_text,
-    )
+    c.drawCentredString(banner_x + banner_w / 2.0, banner_y + 6, banner_text)
 
     c.showPage()
     c.save()
     buf.seek(0)
+    return buf
+
+
+# -------------------------------------------------------------------
+# PDF ROUTES
+# -------------------------------------------------------------------
+
+@app.route("/api/generate-pdf", methods=["POST"])
+def api_generate_pdf():
+    """
+    POSTed from the front-end with the current state JSON.
+    Returns a PDF stream.
+    """
+    state = request.get_json(force=True) or {}
+    pdf_buf = _build_pdf_from_state(state)
     return send_file(
-        buf,
+        pdf_buf,
         mimetype="application/pdf",
         as_attachment=False,
         download_name="Leadership200.pdf",
     )
-    
-    # ---------- FINISH ----------
-    c.showPage()
-    c.save()
 
+
+@app.route("/generate-pdf", methods=["GET"])
+def generate_pdf_from_saved_state():
+    """
+    Convenience GET route (for when you hit /generate-pdf directly).
+    Uses the state stored in the database.
+    """
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT state_json FROM leadership_state ORDER BY id LIMIT 1;")
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+
+    if row and row[0]:
+        if isinstance(row[0], (dict, list)):
+            state = row[0]
+        else:
+            state = json.loads(row[0])
+    else:
+        state = default_state()
+
+    pdf_buf = _build_pdf_from_state(state)
     return send_file(
-        pdf_path,
+        pdf_buf,
         mimetype="application/pdf",
         as_attachment=False,
         download_name="Leadership200.pdf",
     )
 
+
+# -------------------------------------------------------------------
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
