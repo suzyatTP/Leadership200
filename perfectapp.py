@@ -6,15 +6,6 @@ import psycopg2
 # Render gives you this via the Environment variable
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
-def extract_amount(label):
-    """Extracts dollar value from label string like '1 Gift of $25,000,000'"""
-    if not label:
-        return 0
-    import re
-    m = re.search(r"\$([\d,]+)", label)
-    if not m:
-        return 0
-    return int(m.group(1).replace(",", ""))
 
 def get_conn():
     if not DATABASE_URL:
@@ -192,100 +183,6 @@ def debug_db():
         return f"DB OK: {ts}"
     except Exception as e:
         return f"DB ERROR: {e}", 500
-
-# ====== PDF GENERATION ROUTE =======================================
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
-from reportlab.lib.units import inch
-
-@app.route("/generate-pdf")
-def generate_pdf():
-    # Fetch latest state
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("SELECT state_json FROM leadership_state ORDER BY id LIMIT 1;")
-    row = cur.fetchone()
-    cur.close()
-    conn.close()
-
-    state = row[0] if isinstance(row[0], dict) else json.loads(row[0])
-
-    # Create PDF file
-    pdf_path = "/tmp/leadership_report.pdf"
-    c = canvas.Canvas(pdf_path, pagesize=letter)
-    width, height = letter
-
-    # MARGINS
-    left = 0.75 * inch
-    top = height - 0.75 * inch
-
-    # --- HEADER --------------------------------------------------
-    c.setFont("Times-Bold", 26)
-    c.setFillColorRGB(0.62, 0.0, 0.0)  # red
-    c.drawCentredString(width/2, top, state.get("title","LEADERSHIP 200"))
-
-    c.setFont("Times-Roman", 10)
-    c.setFillColorRGB(0,0,0)
-    c.drawCentredString(width/2, top - 22, "ACCELERATE YOUR VISION")
-
-    # --- TOTAL RECEIVED TO DATE ----------------------------------
-    gifts_total = sum(g["amount"] for g in state.get("gifts", []))
-    c.setFont("Times-Bold", 14)
-    c.setFillColorRGB(0,0,0)
-    c.drawRightString(width - 0.75*inch, top - 55, "TOTAL RECEIVED TO DATE:")
-
-    c.setFillColorRGB(0, 0.2, 0.6)  # dark blue
-    c.setFont("Times-Bold", 20)
-    c.drawRightString(width - 0.75*inch, top - 75, "${:,}".format(int(gifts_total)))
-
-    # --- PYRAMID TOTAL (Planned + Direct Mail) --------------------
-    rows = state.get("rows", [])
-    direct_mail = 3000000
-    planned_total = 0
-    for r in rows:
-        gift_value = extract_amount(r["label"])
-        planned_total += gift_value * r["needed"]
-
-    triangle_total = planned_total + direct_mail
-
-    c.setFillColorRGB(0,0,0)
-    c.setFont("Times-Bold", 18)
-    c.drawCentredString(width/2, top - 130, "TOTAL")
-
-    c.setFont("Times-Bold", 26)
-    c.drawCentredString(width/2, top - 155, "${:,}".format(int(triangle_total)))
-
-    # --- LEVEL ROWS (simple text version for PDF) -----------------
-    y = top - 200
-    c.setFont("Times-Roman", 11)
-
-    for r in rows:
-        label = r["label"]
-        needed = r["needed"]
-        rec = r["received"]
-
-        c.setFillColorRGB(0,0,0)
-        c.drawString(left, y, f"{rec}/{needed}")
-
-        c.drawCentredString(width/2, y, label)
-
-        # Amount received per row (sum of gifts in this bracket)
-        base_amt = extract_amount(label)
-        level_sum = sum(
-            g["amount"]
-            for g in state.get("gifts", [])
-            if base_amt <= g["amount"] < (extract_amount(rows[rows.index(r)-1]["label"]) if rows.index(r)>0 else 999999999)
-        )
-        c.drawRightString(width - 0.75*inch, y, "${:,}".format(int(level_sum)))
-
-        y -= 22
-        if y < 60:
-            c.showPage()
-            y = top - 100
-
-    c.save()
-    return send_file(pdf_path, as_attachment=True, download_name="Leadership200.pdf")
-# ==================================================================
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
