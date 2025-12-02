@@ -6,26 +6,15 @@ from io import BytesIO
 from flask import Flask, send_file, request, jsonify
 import psycopg2
 
-# PDF libs
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter, landscape
 from reportlab.lib import colors
 
 # -------------------------------------------------------------------
-# DATABASE / STATE
+# DATABASE SETUP
 # -------------------------------------------------------------------
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
-
-
-def extract_amount(label):
-    """Extracts dollar value from label string like '1 Gift of $25,000,000'."""
-    if not label:
-        return 0
-    m = re.search(r"\$([\d,]+)", label or "")
-    if not m:
-        return 0
-    return int(m.group(1).replace(",", ""))
 
 
 def get_conn():
@@ -35,7 +24,7 @@ def get_conn():
 
 
 def default_state():
-    """Initial template used if DB is empty."""
+    """Initial state used if DB is empty."""
     return {
         "goal": 100000000,
         "title": "LEADERSHIP 200",
@@ -56,434 +45,366 @@ def default_state():
 
 
 def ensure_table():
-    """Ensures the DB table exists."""
+    """Create the table if needed and insert one default row."""
     conn = get_conn()
     cur = conn.cursor()
     cur.execute(
         """
-        CREATE TABLE IF NOT EXISTS leadership200_state (
+        CREATE TABLE IF NOT EXISTS leadership_state (
             id SERIAL PRIMARY KEY,
-            singleton_key BOOLEAN UNIQUE DEFAULT TRUE,
-            payload JSONB NOT NULL
+            state_json JSONB NOT NULL,
+            updated_at TIMESTAMPTZ DEFAULT NOW()
         );
         """
     )
+    cur.execute("SELECT id FROM leadership_state LIMIT 1;")
+    if not cur.fetchone():
+        cur.execute(
+            "INSERT INTO leadership_state (state_json) VALUES (%s);",
+            (json.dumps(default_state()),),
+        )
     conn.commit()
     cur.close()
     conn.close()
 
 
-def load_state():
-    """Loads state JSON from DB, or returns default_state if none."""
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute("SELECT payload FROM leadership200_state WHERE singleton_key = TRUE")
-    row = cur.fetchone()
-    cur.close()
-    conn.close()
-
-    if not row:
-        return default_state()
-
-    try:
-        payload = row[0]
-        if not isinstance(payload, dict):
-            return default_state()
-        return payload
-    except Exception:
-        return default_state()
-
-
-def save_state(state):
-    """Upserts state into DB."""
-    conn = get_conn()
-    cur = conn.cursor()
-    cur.execute(
-        """
-        INSERT INTO leadership200_state (singleton_key, payload)
-        VALUES (TRUE, %s)
-        ON CONFLICT (singleton_key)
-        DO UPDATE SET payload = EXCLUDED.payload
-        """,
-        (json.dumps(state),),
-    )
-    conn.commit()
-    cur.close()
-    conn.close()
-
+app = Flask(__name__)
+ensure_table()
 
 # -------------------------------------------------------------------
-# PDF HELPER FUNCTIONS
+# BASIC UTILS
 # -------------------------------------------------------------------
 
-BLUE = colors.HexColor("#0047b5")
-BLUE_LIGHT = colors.HexColor("#4f7fd6")
-BLUE_DARK = colors.HexColor("#00308b")
-RED = colors.HexColor("#c6001a")
-RED_LIGHT = colors.HexColor("#ff7a7a")
-TRI_LIGHT = colors.HexColor("#d5ecff")
-TRI_LIGHT2 = colors.HexColor("#e3f3ff")
-TRI_LIGHT3 = colors.HexColor("#edf8ff")
-
-
-def _parse_number(raw):
-    if raw is None:
-        return 0.0
-    if isinstance(raw, (int, float)):
-        return float(raw)
-    s = str(raw)
-    s = re.sub(r"[^\d.\-]", "", s)
+def _parse_number(v):
+    if v is None:
+        return 0
+    if isinstance(v, (int, float)):
+        return float(v)
+    s = re.sub(r"[^\d.\-]", "", str(v))
     try:
         return float(s)
     except ValueError:
         return 0.0
 
 
-def _triangle_color_at(t, c1, c2, c3):
-    """Simple 3-stop gradient interpolation for the triangle."""
-    # Clamp
-    t = max(0.0, min(1.0, t))
-    if t < 0.5:
-        r = t / 0.5
-        a, b = c1, c2
-    else:
-        r = (t - 0.5) / 0.5
-        a, b = c2, c3
-
-    def lerp(x, y, r_):
-        return x + (y - x) * r_
-
-    return colors.Color(
-        lerp(a.red, b.red, r),
-        lerp(a.green, b.green, r),
-        lerp(a.blue, b.blue, r),
-    )
+def _gift_base(label: str) -> int:
+    """Extract base dollar amount from a row label."""
+    m = re.search(r"\$([\d,]+)", label or "")
+    return int(m.group(1).replace(",", "")) if m else 0
 
 
-def _draw_triangle_gradient(c, width, top_y, height, TRI_LIGHT, TRI_LIGHT2, TRI_LIGHT3):
-    """Draws the big light-blue triangle background."""
-    base_y = top_y - height
-
-    steps = 60
-    c.saveState()
-    path = c.beginPath()
-    path.moveTo(width / 2.0, top_y)
-    path.lineTo(width, base_y)
-    path.lineTo(0, base_y)
-    path.close()
-    c.clipPath(path, stroke=0, fill=0)
-
-    for i in range(steps):
-        tt = i / float(steps - 1)
-        col = _triangle_color_at(tt, TRI_LIGHT, TRI_LIGHT2, TRI_LIGHT3)
-        band_y = base_y + (top_y - base_y) * tt
-        band_h = (top_y - base_y) / float(steps)
-        c.setFillColor(col)
-        c.rect(0, band_y, width, band_h + 1, stroke=0, fill=1)
-
-    c.restoreState()
+def _blend(c1, c2, t):
+    """Linearly blend two ReportLab Color objects."""
+    t = max(0.0, min(1.0, float(t)))
+    r = c1.red + (c2.red - c1.red) * t
+    g = c1.green + (c2.green - c1.green) * t
+    b = c1.blue + (c2.blue - c1.blue) * t
+    return colors.Color(r, g, b)
 
 
-def _build_pdf_from_state(state):
-    """Core function: builds the Leadership 200 top-section PDF and returns a BytesIO buffer."""
-    goal = _parse_number(state.get("goal", 0))
-    title = state.get("title") or "LEADERSHIP 200"
-    rows_raw = state.get("rows", []) or []
-    gifts_raw = state.get("gifts", []) or []
-
-    # Normalize gifts
-    gifts = []
-    for g in gifts_raw:
+def _load_state_from_row(row):
+    """Robustly convert the DB value to a Python dict."""
+    if not row or row[0] is None:
+        return default_state()
+    raw = row[0]
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str):
         try:
-            amt = _parse_number(g.get("amount", 0))
-            gifts.append(
-                {
-                    "donorName": g.get("donorName", "") or "",
-                    "idNumber": g.get("idNumber", "") or "",
-                    "amount": amt,
-                    "purpose": g.get("purpose", "") or "",
-                }
-            )
+            return json.loads(raw)
         except Exception:
-            continue
+            return default_state()
+    # JSONB may already be a Python object
+    return raw
 
-    gifts.sort(key=lambda g: g["amount"], reverse=True)
 
-    # Rows
-    row_infos = []
-    for r in rows_raw:
-        label = (r.get("label") or "").strip()
-        received = int(_parse_number(r.get("received", 0)))
-        needed = int(_parse_number(r.get("needed", 0)))
-        base_amount = extract_amount(label)
-        row_infos.append(
-            {
-                "label": label,
-                "received": max(received, 0),
-                "needed": max(needed, 0),
-                "base_amount": float(base_amount),
-            }
+# -------------------------------------------------------------------
+# ROUTES – STATE
+# -------------------------------------------------------------------
+
+@app.route("/")
+def index():
+    return send_file("index.html")
+
+
+@app.route("/api/state", methods=["GET"])
+def get_state():
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT state_json FROM leadership_state ORDER BY id LIMIT 1;")
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    state = _load_state_from_row(row)
+    return jsonify(state)
+
+
+@app.route("/api/state", methods=["POST"])
+def save_state():
+    state = request.get_json()
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM leadership_state LIMIT 1;")
+    row = cur.fetchone()
+    if row:
+        cur.execute(
+            "UPDATE leadership_state "
+            "SET state_json=%s, updated_at=NOW() WHERE id=%s;",
+            (json.dumps(state), row[0]),
         )
+    else:
+        cur.execute(
+            "INSERT INTO leadership_state (state_json) VALUES (%s);",
+            (json.dumps(state),),
+        )
+    conn.commit()
+    cur.close()
+    conn.close()
+    return jsonify({"status": "ok"})
 
-    # Assign gifts to rows by amount ranges (descending)
-    row_infos_sorted = sorted(row_infos, key=lambda x: x["base_amount"], reverse=True)
-    for ri in row_infos_sorted:
-        ri["auto_gifts"] = []
-        ri["auto_total"] = 0.0
+# -------------------------------------------------------------------
+# PDF GENERATION
+# -------------------------------------------------------------------
 
-    for g in gifts:
-        amt = g["amount"]
-        for idx, ri in enumerate(row_infos_sorted):
-            base = ri["base_amount"] or 0.0
-            if idx == 0:
-                upper = float("inf")
-            else:
-                upper = row_infos_sorted[idx - 1]["base_amount"] or float("inf")
-            if amt >= base and amt < upper:
-                ri["auto_gifts"].append(g)
-                ri["auto_total"] += amt
-                break
+def build_pdf(state):
+    """Render the Leadership 200 top section as a PDF."""
+    goal = _parse_number(state.get("goal"))
+    title = state.get("title", "LEADERSHIP 200")
+    rows = state.get("rows", []) or []
+    gifts = state.get("gifts", []) or []
 
-    # Calculate totals
-    DIRECT_MAIL_TOTAL = 3000000
-    total_planned_levels = 0.0
-    total_needed = 0
+    total_received = sum(_parse_number(g.get("amount")) for g in gifts if g.get("amount"))
 
-    for ri in row_infos_sorted:
-        level_goal = ri["base_amount"] * ri["needed"]
-        total_planned_levels += level_goal
-        total_needed += ri["needed"]
-
-    planned_with_direct = total_planned_levels + DIRECT_MAIL_TOTAL
-    total_received_to_date = sum(g["amount"] for g in gifts)
-
-    # Build PDF
     buf = BytesIO()
     c = canvas.Canvas(buf, pagesize=landscape(letter))
     width, height = landscape(letter)
 
-    margin_x = 60
-    header_h = 80
-    strip_h = 22
+    # Colors (matched to HTML)
+    BLUE = colors.HexColor("#0047b5")
+    BLUE_DARK = colors.HexColor("#00308b")
+    BLUE_MID = colors.HexColor("#4f7fd6")
+    RED = colors.HexColor("#c6001a")
+    RED_LIGHT = colors.HexColor("#ff7a7a")
+    TRI1 = colors.HexColor("#d5ecff")
+    TRI2 = colors.HexColor("#e3f3ff")
+    TRI3 = colors.HexColor("#edf8ff")
+    BEIGE = colors.HexColor("#f3ede5")
+    WHITE = colors.white
 
-    # Header
+    center = width / 2.0
+    margin_x = 50
+
+    # ---------------- HEADER ----------------
+    y = height - 36
     c.setFillColor(colors.black)
-    c.setFont("Times-Roman", 7)
-    c.drawCentredString(
-        width / 2.0,
-        height - 24,
-        "TURNING POINT WITH DR. DAVID JEREMIAH",
-    )
+    c.setFont("Times-Roman", 8)
+    c.drawCentredString(center, y, "TURNING POINT WITH DR. DAVID JEREMIAH")
 
-    c.setFont("Times-Bold", 30)
+    y -= 20
+    c.setFont("Times-Bold", 26)
     c.setFillColor(colors.HexColor("#9f1515"))
-    c.drawCentredString(width / 2.0, height - 52, title.upper())
+    c.drawCentredString(center, y, title.upper())
 
-    c.setFont("Times-Roman", 11)
+    y -= 16
+    c.setFont("Times-Roman", 9)
     c.setFillColor(colors.black)
-    c.drawCentredString(width / 2.0, height - 70, "ACCELERATE YOUR VISION")
+    c.drawCentredString(center, y, "ACCELERATE YOUR VISION")
 
-    c.setFont("Times-Italic", 8)
+    y -= 14
+    c.setFont("Times-Italic", 7.5)
     c.drawCentredString(
-        width / 2.0,
-        height - 83,
+        center,
+        y,
         "Delivering the Unchanging Word of God to an Ever-Changing World",
     )
 
-    # Top beige strip
-    strip_top = height - header_h - 10
-    c.setFillColor(colors.HexColor("#f3ede5"))
-    c.rect(0, strip_top - strip_h, width, strip_h, stroke=0, fill=1)
+    # ---------------- TOP STRIP ----------------
+    strip_y = y - 8
+    c.setFillColor(BEIGE)
+    c.rect(0, strip_y - 24, width, 24, stroke=0, fill=1)
 
-    # "TOTAL RECEIVED TO DATE" label + blue pill
-    label_x = width - margin_x - 170
-    # Slightly larger and nudged to sit clearly above the blue total box
-    c.setFont("Times-Roman", 8)
+    label_center_x = width - 125  # align label above the amount box
+    c.setFont("Times-Roman", 8.5)  # a bit larger for readability
     c.setFillColor(colors.black)
-    c.drawString(label_x, strip_top - 5, "TOTAL RECEIVED TO DATE")
+    c.drawCentredString(label_center_x, strip_y - 4, "TOTAL RECEIVED TO DATE")
 
-    pill_w = 170
-    pill_h = 19
-    pill_x = width - margin_x - pill_w
-    pill_y = strip_top - strip_h + 3
     c.setFillColor(BLUE_DARK)
-    c.roundRect(pill_x, pill_y, pill_w, pill_h, 3, stroke=0, fill=1)
-
-    c.setFont("Times-Bold", 10)
+    c.roundRect(width - 210, strip_y - 21, 170, 18, 3, stroke=0, fill=1)
     c.setFillColor(colors.white)
+    c.setFont("Times-Bold", 11)
     c.drawCentredString(
-        pill_x + pill_w / 2.0,
-        pill_y + 5.5,
-        "${:,.0f}".format(total_received_to_date),
+        label_center_x,
+        strip_y - 17,
+        f"${total_received:,.0f}",
     )
 
-    # Triangle
-    tri_top_y = strip_top - 48
-    tri_height = 260
-    _draw_triangle_gradient(
-        c,
-        width,
-        tri_top_y,
-        tri_height,
-        TRI_LIGHT,
-        TRI_LIGHT2,
-        TRI_LIGHT3,
-    )
+    # ---------------- TRIANGLE (narrower, same height) ----------------
+    tri_top = strip_y - 45
+    tri_height = 300  # keep same height
+    tri_half_width = width * 0.35  # narrower than full width
+    tri_base_y = tri_top - tri_height
 
-    # Total text inside triangle – moved slightly higher and enlarged for readability
-    c.setFillColor(colors.black)
+    c.saveState()
+    path = c.beginPath()
+    path.moveTo(center, tri_top)
+    path.lineTo(center - tri_half_width, tri_base_y)
+    path.lineTo(center + tri_half_width, tri_base_y)
+    path.close()
+    c.clipPath(path, stroke=0, fill=0)
+
+    steps_tri = 180
+    for i in range(steps_tri):
+        t = i / float(steps_tri - 1)
+        if t < 0.55:
+            col = TRI1
+        elif t < 0.82:
+            col = _blend(TRI1, TRI2, (t - 0.55) / 0.27)
+        else:
+            col = _blend(TRI2, TRI3, (t - 0.82) / 0.18)
+
+        yb = tri_base_y + t * tri_height
+        c.setFillColor(col)
+        c.rect(
+            center - tri_half_width,
+            yb,
+            tri_half_width * 2,
+            tri_height / steps_tri + 1,
+            stroke=0,
+            fill=1,
+        )
+    c.restoreState()
+
+    # TOTAL text inside triangle – moved higher
     c.setFont("Times-Roman", 9)
-    c.drawCentredString(width / 2.0, tri_top_y - 20, "TOTAL")
-    c.setFont("Times-Bold", 20)
-    c.drawCentredString(width / 2.0, tri_top_y - 38, "${:,.0f}".format(goal))
-
-    # Bars area
-    bars_area_height = tri_height * 0.60
-    bars_top_y = (tri_top_y - tri_height) + bars_area_height + 10
-    row_h = 17
-    row_gap = 5
-
-    labels_y = bars_top_y + row_h + 8
-    c.setFont("Times-Italic", 7)
     c.setFillColor(colors.black)
-    c.drawString(margin_x, labels_y, "Gifts Received/Needed")
-    c.drawRightString(
-        width - margin_x, labels_y, "Total Gift/Pledge Dollars Committed"
-    )
+    c.drawCentredString(center, tri_top - 22, "TOTAL")
+    c.setFont("Times-Bold", 20)
+    c.drawCentredString(center, tri_top - 40, f"${goal:,.0f}")
 
+    # ---------------- BARS ----------------
+    # Make rows taller & fonts larger
+    row_h = 24          # was 17
+    row_gap = 7         # was 5
+    n_rows = len(rows)
+    step = row_h + row_gap
+
+    # Position bars so top and bottom spacing feel balanced
+    bars_top = tri_base_y + tri_height - 55
     bar_left = margin_x
     bar_right = width - margin_x
     bar_width = bar_right - bar_left
 
-    # Draw each bar row
-    c.setFont("Times-Roman", 7.5)
-    for idx, ri in enumerate(row_infos_sorted):
-        y_bar = bars_top_y - idx * (row_h + row_gap)
-        is_blue = (idx % 2 == 0)
+    # Top labels (bigger and clearer)
+    c.setFont("Times-Bold", 10)
+    c.setFillColor(BLUE_DARK)
+    c.drawString(bar_left, bars_top + 32, "Gifts Received / Needed")
+    c.drawRightString(bar_right, bars_top + 32, "Total Gift / Pledge Dollars Committed")
 
-        # gradient background
-        if is_blue:
-            c.saveState()
-            c.setFillColor(BLUE)
-            c.setStrokeColor(colors.white)
-            c.rect(bar_left, y_bar, bar_width, row_h, stroke=0, fill=1)
-            c.restoreState()
+    # Draw each bar + text
+    c.setFont("Times-Roman", 9)
+    steps_bar = 140
 
-            c.saveState()
-            c.clipRect(bar_left, y_bar, bar_width, row_h)
-            for i in range(50):
-                t = i / 49.0
-                col = colors.Color(
-                    BLUE.red + (BLUE_LIGHT.red - BLUE.red) * t,
-                    BLUE.green + (BLUE_LIGHT.green - BLUE.green) * t,
-                    BLUE.blue + (BLUE_LIGHT.blue - BLUE.blue) * t,
-                )
-                x = bar_left + bar_width * t
-                c.setFillColor(col)
-                c.rect(x, y_bar, bar_width / 50.0 + 1, row_h, stroke=0, fill=1)
-            c.restoreState()
-        else:
-            c.saveState()
-            c.setFillColor(RED)
-            c.setStrokeColor(colors.white)
-            c.rect(bar_left, y_bar, bar_width, row_h, stroke=0, fill=1)
-            c.restoreState()
+    for i, r in enumerate(rows):
+        yb = bars_top - i * step
+        is_blue = (i % 2 == 0)
+        step_w = bar_width / float(steps_bar)
 
-            c.saveState()
-            c.clipRect(bar_left, y_bar, bar_width, row_h)
-            for i in range(50):
-                t = i / 49.0
-                col = colors.Color(
-                    RED.red + (RED_LIGHT.red - RED.red) * t,
-                    RED.green + (RED_LIGHT.green - RED.green) * t,
-                    RED.blue + (RED_LIGHT.blue - RED.blue) * t,
-                )
-                x = bar_left + bar_width * t
-                c.setFillColor(col)
-                c.rect(x, y_bar, bar_width / 50.0 + 1, row_h, stroke=0, fill=1)
-            c.restoreState()
+        for j in range(steps_bar):
+            t = j / float(steps_bar - 1)
 
-        # left fraction
+            if is_blue:
+                # blue → blue-mid → white → blue-mid → blue
+                if t <= 0.18:
+                    col = _blend(BLUE, BLUE_MID, t / 0.18)
+                elif t <= 0.5:
+                    col = _blend(BLUE_MID, WHITE, (t - 0.18) / 0.32)
+                elif t <= 0.82:
+                    col = _blend(WHITE, BLUE_MID, (t - 0.5) / 0.32)
+                else:
+                    col = _blend(BLUE_MID, BLUE, (t - 0.82) / 0.18)
+            else:
+                # red → red-light → white → red-light → red
+                if t <= 0.18:
+                    col = _blend(RED, RED_LIGHT, t / 0.18)
+                elif t <= 0.5:
+                    col = _blend(RED_LIGHT, WHITE, (t - 0.18) / 0.32)
+                elif t <= 0.82:
+                    col = _blend(WHITE, RED_LIGHT, (t - 0.5) / 0.32)
+                else:
+                    col = _blend(RED_LIGHT, RED, (t - 0.82) / 0.18)
+
+            c.setFillColor(col)
+            c.rect(
+                bar_left + j * step_w,
+                yb,
+                step_w + 0.5,
+                row_h,
+                stroke=0,
+                fill=1,
+            )
+
+        # Left fraction text (bigger, vertically centered)
         c.setFillColor(colors.white)
-        if ri["needed"]:
-            frac_text = f"{ri['received']}/{ri['needed']}"
-        else:
-            frac_text = f"{ri['received']}"
-        c.drawString(bar_left + 5, y_bar + 5, frac_text)
-
-        # center label
-        c.setFillColor(colors.white)
-        c.drawCentredString(bar_left + bar_width / 2.0, y_bar + 5, ri["label"])
-
-        # right committed
-        committed = ri.get("auto_total", 0.0)
-        c.drawRightString(
-            bar_right - 6,
-            y_bar + 5,
-            "${:,.0f}".format(committed),
+        c.drawString(
+            bar_left + 5,
+            yb + 7.5,
+            f"{r.get('received', 0)}/{r.get('needed', 0)}",
         )
 
-    # Bottom banner
+        # Center label (bigger)
+        c.setFillColor(BLUE_DARK)
+        c.drawCentredString(
+            bar_left + bar_width / 2.0,
+            yb + 7.5,
+            r.get("label", ""),
+        )
+
+        # Right amount
+        c.setFillColor(colors.white)
+        c.drawRightString(
+            bar_right - 5,
+            yb + 7.5,
+            "$0",
+        )
+
+    # ---------------- BOTTOM BANNER ----------------
     banner_w = width * 0.55
-    banner_h = 22
-    last_row_y = bars_top_y - (len(row_infos_sorted) - 1) * (row_h + row_gap)
-    # Nudge the bottom banner slightly closer to the bars
-    banner_y = last_row_y - 32
+    banner_h = 24
     banner_x = (width - banner_w) / 2.0
+    banner_y = bars_top - n_rows * step - 24  # slightly tighter gap
 
     c.setFillColor(BLUE_DARK)
     c.rect(banner_x, banner_y, banner_w, banner_h, stroke=0, fill=1)
-    c.setFillColor(colors.white)
-    c.setFont("Times-Bold", 11)
-    total_gifts = sum(ri.get("needed", 0) for ri in row_infos_sorted)
-    banner_text = f"{total_gifts:,} LEADERSHIP GIFTS/PLEDGES"
-    c.drawCentredString(banner_x + banner_w / 2.0, banner_y + 6, banner_text)
 
+    total_gifts = sum(r.get("needed", 0) for r in rows)
+    c.setFillColor(colors.white)
+    c.setFont("Times-Bold", 12)
+    c.drawCentredString(
+        width / 2.0,
+        banner_y + 7,
+        f"{total_gifts:,} LEADERSHIP GIFTS/PLEDGES",
+    )
+
+    # Finalize
     c.showPage()
     c.save()
     buf.seek(0)
     return buf
 
 
-# -------------------------------------------------------------------
-# FLASK APP
-# -------------------------------------------------------------------
-
-app = Flask(__name__)
-
-
-@app.route("/")
-def index():
-    return app.send_static_file("index.html")
-
-
-@app.route("/api/state", methods=["GET"])
-def api_get_state():
-    try:
-        state = load_state()
-    except Exception:
-        state = default_state()
-    return jsonify(state)
-
-
-@app.route("/api/state", methods=["POST"])
-def api_set_state():
-    data = request.get_json(force=True, silent=True) or {}
-    try:
-        save_state(data)
-        return jsonify({"ok": True})
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-
-@app.route("/generate-pdf")
+@app.route("/generate-pdf", methods=["GET"])
 def generate_pdf():
-    try:
-        state = load_state()
-    except Exception:
-        state = default_state()
+    """Generate PDF using the state stored in the database."""
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT state_json FROM leadership_state LIMIT 1;")
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
 
-    pdf_buf = _build_pdf_from_state(state)
+    state = _load_state_from_row(row)
+    pdf_buf = build_pdf(state)
+
     return send_file(
         pdf_buf,
         mimetype="application/pdf",
@@ -492,8 +413,5 @@ def generate_pdf():
     )
 
 
-# -------------------------------------------------------------------
-
 if __name__ == "__main__":
-    ensure_table()
     app.run(host="0.0.0.0", port=5000, debug=True)
