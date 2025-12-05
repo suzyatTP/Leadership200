@@ -386,12 +386,7 @@ def build_pdf(state):
     c.setFillColor(colors.HexColor("#9f1515"))
     c.drawCentredString(center, y, title.upper())
 
-    y -= 16
-    c.setFont("Times-Roman", 9)
-    c.setFillColor(colors.black)
-    c.drawCentredString(center, y, "ACCELERATE YOUR VISION")
-
-    y -= 14
+    y -= 22
     c.setFont("Times-Italic", 7.5)
     c.drawCentredString(
         center,
