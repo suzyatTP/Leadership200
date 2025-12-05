@@ -378,16 +378,16 @@ def build_pdf(state):
     # HEADER
     y = height - 28
     c.setFillColor(colors.black)
-    c.setFont("Times-Roman", 8)
+    c.setFont("Georgia", 8)
     c.drawCentredString(center, y, "TURNING POINT WITH DR. DAVID JEREMIAH")
 
     y -= 26
-    c.setFont("Times-Bold", 32)
+    c.setFont("Georgia-Bold", 32)
     c.setFillColor(colors.HexColor("#9f1515"))
     c.drawCentredString(center, y, title.upper())
 
     y -= 22
-    c.setFont("Times-Italic", 7.5)
+    c.setFont("Georgia-Italic", 7.5)
     c.drawCentredString(
         center,
         y,
@@ -400,7 +400,7 @@ def build_pdf(state):
     c.rect(0, strip_y - 24, width, 24, stroke=0, fill=1)
 
     label_center_x = width - 125
-    c.setFont("Times-Roman", 9)
+    c.setFont("Georgia", 9)
     c.setFillColor(colors.black)
     c.drawCentredString(label_center_x, strip_y + 1, "TOTAL RECEIVED TO DATE")
 
