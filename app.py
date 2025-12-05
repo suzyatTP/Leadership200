@@ -11,6 +11,7 @@ from functools import wraps
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter, landscape
 from reportlab.lib import colors
+from reportlab.pdfbase import pdfmetrics
 
 # -------------------------------------------------------------------
 # DATABASE / STATE
@@ -451,12 +452,33 @@ def build_pdf(state):
         )
     c.restoreState()
 
-    # TOTAL inside triangle
-    c.setFont("Times-Roman", 11)
+    # -------- TOTAL text inside triangle (match HTML more closely) --------
     c.setFillColor(colors.black)
-    c.drawCentredString(center, tri_top - 10, "TOTAL")
-    c.setFont("Times-Bold", 25)
-    c.drawCentredString(center, tri_top - 32, _format_currency(goal))
+
+    # TOTAL label – similar to .triangle-total-label in CSS
+    total_label_font = "Times-Roman"   # HTML uses Georgia; Times is the closest built-in
+    total_label_size = 12              # CSS was 12px, so 12pt is a good match
+    label_text = "TOTAL"
+
+    # approximate letter-spacing 0.18em with char-space
+    char_space = 2.0                   # tweak 1.5–2.5 if you want a little more/less spread
+
+    label_width = pdfmetrics.stringWidth(label_text, total_label_font, total_label_size) \
+                + char_space * (len(label_text) - 1)
+
+    tx = c.beginText()
+    tx.setFont(total_label_font, total_label_size)
+    tx.setCharSpace(char_space)
+    tx.setTextOrigin(center - label_width / 2.0, tri_top - 10)  # vertical position
+    tx.textLine(label_text)
+    c.drawText(tx)
+
+    # $100,000,000 amount – similar to .triangle-total-amount (28px bold)
+    amount_font = "Times-Bold"
+    amount_size = 28
+    c.setFont(amount_font, amount_size)
+    c.drawCentredString(center, tri_top - 38, f"${goal:,.0f}")
+
 
     # BARS
     row_h = 24
