@@ -469,7 +469,7 @@ def build_pdf(state):
     bar_right = width - margin_x
     bar_width = bar_right - bar_left
 
-    c.setFont("Times-Bold", 12)
+    c.setFont("Times-Italic", 12)
     c.setFillColor(BLUE_DARK)
     c.drawString(bar_left, bars_top + 32, "Gifts Received / Needed")
     c.drawRightString(bar_right, bars_top + 32, "Total Gift / Pledge Dollars Committed")
