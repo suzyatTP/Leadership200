@@ -19,23 +19,46 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 
 def get_conn():
     if not DATABASE_URL:
-        raise RuntimeError("DATABASE_URL environment variable not set")
+        raise RuntimeError("DATABASE_URL environment variable is not set")
     return psycopg2.connect(DATABASE_URL, sslmode="require")
 
 
+def default_state():
+    """Initial state used if DB is empty."""
+    return {
+        "goal": 100000000,
+        "title": "LEADERSHIP 200",
+        "rows": [
+            {"received": 0, "needed": 1, "label": "1 Gift of $25,000,000"},
+            {"received": 0, "needed": 1, "label": "1 Gift/Pledge of $20,000,000"},
+            {"received": 1, "needed": 1, "label": "1 Gift/Pledge of $10,000,000"},
+            {"received": 0, "needed": 1, "label": "1 Gift/Pledge of $5,000,000"},
+            {"received": 0, "needed": 2, "label": "2 Gifts/Pledges of $2,500,000"},
+            {"received": 0, "needed": 10, "label": "10 Gifts/Pledges of $1,000,000"},
+            {"received": 0, "needed": 14, "label": "14 Gifts/Pledges of $500,000"},
+            {"received": 0, "needed": 20, "label": "20 Gifts/Pledges of $250,000"},
+            {"received": 0, "needed": 50, "label": "50 Gifts/Pledges of $100,000"},
+            {"received": 0, "needed": 100, "label": "100 Gifts/Pledges of $50,000"},
+        ],
+        "gifts": [],
+    }
+
+
 def ensure_table():
+    """Create the table if needed and insert one default row."""
     conn = get_conn()
     cur = conn.cursor()
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS leadership_state (
             id SERIAL PRIMARY KEY,
-            state_json JSONB NOT NULL
+            state_json JSONB NOT NULL,
+            updated_at TIMESTAMPTZ DEFAULT NOW()
         );
         """
     )
-    cur.execute("SELECT COUNT(*) FROM leadership_state;")
-    if cur.fetchone()[0] == 0:
+    cur.execute("SELECT id FROM leadership_state LIMIT 1;")
+    if not cur.fetchone():
         cur.execute(
             "INSERT INTO leadership_state (state_json) VALUES (%s);",
             (json.dumps(default_state()),),
@@ -43,31 +66,6 @@ def ensure_table():
     conn.commit()
     cur.close()
     conn.close()
-
-
-# -------------------------------------------------------------------
-# DEFAULT STATE (match your HTML structure)
-# -------------------------------------------------------------------
-
-def default_state():
-    return {
-        "goal": 100_000_000,
-        "title": "LEADERSHIP 200",
-        "rows": [
-            {"label": "1 Gift of $25,000,000", "needed": 1, "received": 0},
-            {"label": "1 Gift/Pledge of $20,000,000", "needed": 1, "received": 0},
-            {"label": "1 Gift/Pledge of $10,000,000", "needed": 1, "received": 0},
-            {"label": "1 Gift/Pledge of $5,000,000", "needed": 1, "received": 0},
-            {"label": "2 Gifts/Pledges of $2,500,000", "needed": 2, "received": 0},
-            {"label": "10 Gifts/Pledges of $1,000,000", "needed": 10, "received": 0},
-            {"label": "14 Gifts/Pledges of $500,000", "needed": 14, "received": 0},
-            {"label": "20 Gifts/Pledges of $250,000", "needed": 20, "received": 0},
-            {"label": "50 Gifts/Pledges of $100,000", "needed": 50, "received": 0},
-            {"label": "100 Gifts/Pledges of $50,000", "needed": 100, "received": 0},
-        ],
-        "gifts": [],
-        "direct_mail": 3_000_000,
-    }
 
 
 app = Flask(__name__)
@@ -89,17 +87,10 @@ def _parse_number(v):
         return 0.0
 
 
-def _gift_base(label):
-    """
-    Extract the base dollar amount from a row label, e.g.
-    '1 Gift/Pledge of $10,000,000' -> 10_000_000.
-    """
-    if not label:
-        return 0
-    m = re.search(r"\$([\d,]+(?:\.\d+)?)", label)
-    if not m:
-        return 0
-    return _parse_number(m.group(1))
+def _gift_base(label: str) -> int:
+    """Extract base dollar amount from a row label."""
+    m = re.search(r"\$([\d,]+)", label or "")
+    return int(m.group(1).replace(",", "")) if m else 0
 
 
 def _blend(c1, c2, t):
@@ -109,10 +100,6 @@ def _blend(c1, c2, t):
     g = c1.green + (c2.green - c1.green) * t
     b = c1.blue + (c2.blue - c1.blue) * t
     return colors.Color(r, g, b)
-
-def _format_currency(amount):
-    """Format a number like the JS formatCurrency helper ($1,234,567)."""
-    return "$%s" % (format(int(round(float(amount or 0))), ',d'))
 
 
 def _load_state_from_row(row):
@@ -125,102 +112,68 @@ def _load_state_from_row(row):
     if isinstance(raw, str):
         try:
             return json.loads(raw)
-        except json.JSONDecodeError:
+        except Exception:
             return default_state()
     # JSONB may already be a Python object
     return raw
 
 
 # -------------------------------------------------------------------
-# ROUTES TO GET / SAVE STATE
+# ROUTES – STATE
 # -------------------------------------------------------------------
 
-@app.route("/get-state", methods=["GET"])
+@app.route("/")
+def index():
+    return send_file("index.html")
+
+
+@app.route("/api/state", methods=["GET"])
 def get_state():
     conn = get_conn()
     cur = conn.cursor()
-    cur.execute("SELECT state_json FROM leadership_state LIMIT 1;")
+    cur.execute("SELECT state_json FROM leadership_state ORDER BY id LIMIT 1;")
     row = cur.fetchone()
     cur.close()
     conn.close()
-
     state = _load_state_from_row(row)
     return jsonify(state)
 
 
-@app.route("/save-state", methods=["POST"])
+@app.route("/api/state", methods=["POST"])
 def save_state():
-    data = request.get_json(force=True) or {}
+    state = request.get_json()
     conn = get_conn()
     cur = conn.cursor()
-    cur.execute(
-        "UPDATE leadership_state SET state_json = %s WHERE id = 1;",
-        (json.dumps(data),),
-    )
-    if cur.rowcount == 0:
+    cur.execute("SELECT id FROM leadership_state LIMIT 1;")
+    row = cur.fetchone()
+    if row:
         cur.execute(
-            "INSERT INTO leadership_state (id, state_json) VALUES (1, %s);",
-            (json.dumps(data),),
+            "UPDATE leadership_state "
+            "SET state_json=%s, updated_at=NOW() WHERE id=%s;",
+            (json.dumps(state), row[0]),
+        )
+    else:
+        cur.execute(
+            "INSERT INTO leadership_state (state_json) VALUES (%s);",
+            (json.dumps(state),),
         )
     conn.commit()
     cur.close()
     conn.close()
     return jsonify({"status": "ok"})
 
-
 # -------------------------------------------------------------------
 # PDF GENERATION
 # -------------------------------------------------------------------
 
 def build_pdf(state):
-    """Render the Leadership 200 top section as a PDF.
-    This mirrors the browser logic so the PDF numbers match the webpage.
-    """
+    """Render the Leadership 200 top section as a PDF."""
     goal = _parse_number(state.get("goal"))
     title = state.get("title", "LEADERSHIP 200")
     rows = state.get("rows", []) or []
     gifts = state.get("gifts", []) or []
 
-    # Normalise gifts from state (amount as float) and compute the grand total.
-    parsed_gifts = []
-    for g in gifts:
-        amt = _parse_number(g.get("amount"))
-        if amt <= 0:
-            continue
-        parsed_gifts.append({
-            "amount": amt,
-            "donorName": g.get("donorName", ""),
-            "idNumber": g.get("idNumber", ""),
-            "purpose": g.get("purpose", ""),
-        })
-
-    total_received = sum(g["amount"] for g in parsed_gifts)
-
-    # Build row info objects the same way recalcAll() does in the front-end.
-    row_infos = []
-    for r in rows:
-        base = _gift_base(r.get("label", ""))
-        row_infos.append({"row": r, "base": base, "gifts": []})
-
-    # Assign each gift into the appropriate level based on its amount.
-    for gift in parsed_gifts:
-        amt = gift["amount"]
-        for idx, info in enumerate(row_infos):
-            base = float(info["base"] or 0)
-            upper = float(row_infos[idx - 1]["base"] or 0) if idx > 0 else float("inf")
-            if amt >= base and amt < upper:
-                info["gifts"].append(gift)
-                break
-
-    # Pre-compute counts and totals per row for easy rendering.
-    for info in row_infos:
-        r = info["row"]
-        needed = int(_parse_number(r.get("needed")))
-        manual_received = int(_parse_number(r.get("received")))
-        auto_received = len(info["gifts"])
-        info["needed"] = needed
-        info["total_received"] = manual_received + auto_received
-        info["amount_received"] = sum(g["amount"] for g in info["gifts"])
+    total_received = sum(_parse_number(g.get("amount")) for g in gifts if g.get("amount"))
 
     buf = BytesIO()
     c = canvas.Canvas(buf, pagesize=landscape(letter))
@@ -242,7 +195,7 @@ def build_pdf(state):
     margin_x = 50
 
     # ---------------- HEADER ----------------
-    y = height - 36
+    y = height - 28
     c.setFillColor(colors.black)
     c.setFont("Times-Roman", 8)
     c.drawCentredString(center, y, "TURNING POINT WITH DR. DAVID JEREMIAH")
@@ -270,11 +223,13 @@ def build_pdf(state):
     c.setFillColor(BEIGE)
     c.rect(0, strip_y - 24, width, 24, stroke=0, fill=1)
 
+    # Label directly above the blue box, nudged slightly higher and a hair larger
     label_center_x = width - 125
     c.setFont("Times-Roman", 9)
     c.setFillColor(colors.black)
     c.drawCentredString(label_center_x, strip_y + 1, "TOTAL RECEIVED TO DATE")
 
+    # Blue amount pill
     c.setFillColor(BLUE_DARK)
     c.roundRect(width - 210, strip_y - 21, 170, 18, 3, stroke=0, fill=1)
     c.setFillColor(colors.white)
@@ -282,13 +237,13 @@ def build_pdf(state):
     c.drawCentredString(
         label_center_x,
         strip_y - 17,
-        _format_currency(total_received),
+        f"${total_received:,.0f}",
     )
 
-    # ---------------- TRIANGLE ----------------
+    # ---------------- TRIANGLE (narrower, same height) ----------------
     tri_top = strip_y - 45
-    tri_height = 300
-    tri_half_width = width * 0.35
+    tri_height = 300  # keep same height
+    tri_half_width = width * 0.35  # narrower than full width
     tri_base_y = tri_top - tri_height
 
     c.saveState()
@@ -305,53 +260,53 @@ def build_pdf(state):
         if t < 0.55:
             col = TRI1
         elif t < 0.82:
-            col = TRI2
+            col = _blend(TRI1, TRI2, (t - 0.55) / 0.27)
         else:
-            col = TRI3
-        y_band_top = tri_top - i * (tri_height / steps_tri)
+            col = _blend(TRI2, TRI3, (t - 0.82) / 0.18)
+
+        yb = tri_base_y + t * tri_height
         c.setFillColor(col)
         c.rect(
             center - tri_half_width,
-            y_band_top - (tri_height / steps_tri),
+            yb,
             tri_half_width * 2,
-            tri_height / steps_tri + 0.5,
+            tri_height / steps_tri + 1,
             stroke=0,
             fill=1,
         )
-
     c.restoreState()
 
-    # Triangle center text
-    c.setFillColor(colors.black)
+    # TOTAL text inside triangle – moved a bit higher
     c.setFont("Times-Roman", 9)
-    c.drawCentredString(center, tri_top - 20, "TOTAL")
-
-    c.setFont("Times-Bold", 18)
-    c.drawCentredString(center, tri_top - 40, f"${goal:,.0f}")
+    c.setFillColor(colors.black)
+    c.drawCentredString(center, tri_top - 8, "TOTAL")
+    c.setFont("Times-Bold", 20)
+    c.drawCentredString(center, tri_top - 25, f"${goal:,.0f}")
 
     # ---------------- BARS ----------------
-    bars_top = tri_top - 72
-    n_rows = len(row_infos)
-    row_h = 18
-    row_spacing = 3
-    step = row_h + row_spacing
+    # Taller rows & larger fonts
+    row_h = 24
+    row_gap = 7
+    n_rows = len(rows)
+    step = row_h + row_gap
 
+    # Position bars so top and bottom spacing feel balanced
+    bars_top = tri_base_y + tri_height - 55
     bar_left = margin_x
     bar_right = width - margin_x
     bar_width = bar_right - bar_left
 
-    # Top labels
-    c.setFont("Times-Bold", 8.5)
+    # Top labels (bigger and clearer)
+    c.setFont("Times-Bold", 12)
     c.setFillColor(BLUE_DARK)
-    c.drawString(bar_left, bars_top + 30, "Gifts Received / Needed")
-    c.drawRightString(bar_right, bars_top + 30, "Total Gift / Pledge Dollars Committed")
+    c.drawString(bar_left, bars_top + 32, "Gifts Received / Needed")
+    c.drawRightString(bar_right, bars_top + 32, "Total Gift / Pledge Dollars Committed")
 
     # Draw each bar + text
-    c.setFont("Times-Roman", 7.4)
+    c.setFont("Times-Roman", 9)
     steps_bar = 140
 
-    for i, info in enumerate(row_infos):
-        r = info["row"]
+    for i, r in enumerate(rows):
         yb = bars_top - i * step
         is_blue = (i % 2 == 0)
         step_w = bar_width / float(steps_bar)
@@ -380,10 +335,9 @@ def build_pdf(state):
                 else:
                     col = _blend(RED_LIGHT, RED, (t - 0.82) / 0.18)
 
-            x0 = bar_left + j * step_w
             c.setFillColor(col)
             c.rect(
-                x0,
+                bar_left + j * step_w,
                 yb,
                 step_w + 0.5,
                 row_h,
@@ -391,45 +345,46 @@ def build_pdf(state):
                 fill=1,
             )
 
-        # Left fraction text
+        # Left fraction text (bigger, vertically centered)
         c.setFillColor(colors.white)
         c.drawString(
             bar_left + 5,
-            yb + 5.5,
-            f"{info['total_received']}/{info['needed']}",
+            yb + 7.5,
+            f"{r.get('received', 0)}/{r.get('needed', 0)}",
         )
 
-        # Center label (dark blue so it stands out)
+        # Center label (bigger)
         c.setFillColor(BLUE_DARK)
         c.drawCentredString(
             bar_left + bar_width / 2.0,
-            yb + 5.5,
+            yb + 7.5,
             r.get("label", ""),
         )
 
-        # Right amount – committed dollars per row
+        # Right amount
         c.setFillColor(colors.white)
         c.drawRightString(
             bar_right - 5,
-            yb + 5.5,
-            _format_currency(info['amount_received']),
+            yb + 7.5,
+            "$0",
         )
 
     # ---------------- BOTTOM BANNER ----------------
     banner_w = width * 0.55
-    banner_h = 22
+    banner_h = 24
     banner_x = (width - banner_w) / 2.0
-    banner_y = bars_top - n_rows * step - 35
+    # Move banner slightly closer to the last row
+    banner_y = bars_top - n_rows * step - 16
 
     c.setFillColor(BLUE_DARK)
     c.rect(banner_x, banner_y, banner_w, banner_h, stroke=0, fill=1)
 
     total_gifts = sum(r.get("needed", 0) for r in rows)
     c.setFillColor(colors.white)
-    c.setFont("Times-Bold", 11)
+    c.setFont("Times-Bold", 12)
     c.drawCentredString(
         width / 2.0,
-        banner_y + 6,
+        banner_y + 7,
         f"{total_gifts:,} LEADERSHIP GIFTS/PLEDGES",
     )
 
