@@ -6,14 +6,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     :root {
-      --blue: #0047b5;
-      --blue-dark: #00308b;
-      --red: #c6001a;
-      --bg: #ffffff;
+      --blue: #007dba;       /* primary ocean blue */
+      --blue-dark: #006da3;  /* deep header blue */
+      --teal: #00878c;       /* accent teal */
+      --accent-gold: #bb723a;/* copper accent */
+      --bg: #eafdff;         /* airy aqua background */
       --card: #ffffff;
-      --text-main: #222222;
-      --text-soft: #444444;
-      --shadow-soft: 0 16px 40px rgba(15, 23, 42, 0.2);
+      --text-main: #123044;
+      --text-soft: #35586b;
+      --shadow-soft: 0 16px 40px rgba(8, 46, 75, 0.18);
     }
 
     * {
@@ -24,7 +25,7 @@
     body {
       margin: 0;
       padding: 24px;
-      background: radial-gradient(circle at top, #f2f4fb, #f9f6f1 55%, #f3efe9);
+      background: radial-gradient(circle at top, #eafdff 0%, #ffffff 55%, #e5f4ff 100%);
       color: var(--text-main);
     }
 
@@ -49,28 +50,28 @@
       font-size: 11px;
       letter-spacing: 0.24em;
       text-transform: uppercase;
-      color: #444;
+      color: var(--blue-dark);
     }
 
     .header-title {
       margin: 6px 0 4px;
       font-size: 44px;
       letter-spacing: 0.18em;
-      color: #9f1515;
+      color: var(--teal);
     }
 
     .header-subtitle {
       font-size: 15px;
       letter-spacing: 0.35em;
       text-transform: uppercase;
-      color: #444;
+      color: var(--accent-gold);
       margin-bottom: 2px;
     }
 
     .header-tagline {
       font-size: 11px;
       font-style: italic;
-      color: #555;
+      color: var(--text-soft);
     }
 
     /* TOP STRIP ----------------------------------------------------- */
@@ -82,7 +83,7 @@
       padding: 10px 70px 10px;
       border-top: 1px solid rgba(0, 0, 0, 0.06);
       border-bottom: 1px solid rgba(0, 0, 0, 0.09);
-      background: linear-gradient(to bottom, #fbf7f2, #f3ede5);
+      background: linear-gradient(to bottom, #eafdff, #ffffff);
       font-size: 12px;
     }
 
@@ -126,10 +127,10 @@
       height: 620px;
       background: linear-gradient(
         to bottom,
-        #d5ecff 0%,
-        #d5ecff 55%,
-        #e3f3ff 82%,
-        #edf8ff 100%
+        #eafdff 0%,
+        #eafdff 35%,
+        #007dba 80%,
+        #006da3 100%
       );
       clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
       opacity: 1;
@@ -165,7 +166,7 @@
       left: 50%;
       transform: translateX(-50%);
       z-index: 1;
-      background: #00308b;
+      background: var(--blue-dark);
       color: #ffffff;
       padding: 9px 26px;
       font-size: 25px;
@@ -188,11 +189,13 @@
 
     .row-labels-left {
       font-style: italic;
+      color: var(--blue-dark);
     }
 
     .row-labels-right {
       margin-right: 30px;
       font-style: italic;
+      color: var(--blue-dark);
     }
 
     /* LEVEL ROWS ---------------------------------------------------- */
@@ -204,7 +207,7 @@
 
     .level-row {
       display: grid;
-      grid-template-columns: minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr) 24px;
       align-items: center;
       gap: 0;
       margin-bottom: 8px;
@@ -281,9 +284,9 @@
       width: 0%;
       background: linear-gradient(
         to right,
-        rgba(198, 0, 26, 0.95) 0%,
-        rgba(255, 146, 146, 0.95) 0%,
-        rgba(255, 146, 146, 0) 0%
+        rgba(187, 114, 58, 0.9) 0%,
+        rgba(187, 114, 58, 0.6) 35%,
+        rgba(187, 114, 58, 0) 100%
       );
       transition: width 0.18s ease;
       z-index: 0;
@@ -298,7 +301,7 @@
       justify-content: center;
       padding: 0;
       font-size: 13px;
-      color: #0b2f5b;
+      color: var(--blue-dark);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -337,12 +340,46 @@
       z-index: 2;
     }
 
+    .level-right {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .delete-btn {
+      border: none;
+      background: transparent;
+      color: #b91c1c;
+      font-size: 14px;
+      cursor: pointer;
+      padding: 0 0 0 4px;
+      line-height: 1;
+    }
+
+    .delete-btn:hover {
+      color: #7f1010;
+    }
+
+    .add-row-btn {
+      margin-top: 8px;
+      font-size: 11px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      border: 1px solid #b7d7ea;
+      background: #f0f8ff;
+      cursor: pointer;
+    }
+
+    .add-row-btn:hover {
+      background: #e0f0ff;
+    }
+
     /* SUMMARY ------------------------------------------------------ */
 
     .summary {
       padding: 10px 70px 18px;
-      border-top: 1px solid rgba(0, 0, 0, 0.06);
-      background: #f7f2ea;
+      border-top: 1px solid rgba(0, 0, 0, 0.04);
+      background: #f3f9ff;
       font-size: 12px;
     }
 
@@ -376,14 +413,14 @@
       margin-top: 6px;
       height: 8px;
       border-radius: 999px;
-      background: #e0d5c6;
+      background: #c4e2f5;
       overflow: hidden;
     }
 
     .summary-progress-inner {
       height: 100%;
       width: 0%;
-      background: linear-gradient(90deg, var(--blue-dark), #00a4e8);
+      background: linear-gradient(90deg, var(--blue-dark), var(--teal));
       transition: width 0.18s ease;
     }
 
@@ -404,8 +441,8 @@
       margin-top: 3px;
       padding: 4px 8px;
       border-radius: 6px;
-      border: 1px solid #d0c4b5;
-      background: #fbf7f2;
+      border: 1px solid #b7d7ea;
+      background: #f0f8ff;
       font-size: 12px;
       width: 190px;
       font-family: "Georgia", "Times New Roman", serif;
@@ -415,14 +452,14 @@
 
     .indiv-section {
       border-top: 1px solid rgba(0, 0, 0, 0.06);
-      background: #f9f3e8;
+      background: #f2fbff;
       padding: 0 70px 20px;
     }
 
     .indiv-toggle {
       width: 100%;
       border: none;
-      background: #f4ebdd;
+      background: #e4f5ff;
       padding: 10px 14px;
       margin: 0 -70px; /* stretch full width of card */
       border-top: 1px solid rgba(0, 0, 0, 0.06);
@@ -434,7 +471,7 @@
       font-size: 11px;
       letter-spacing: 0.16em;
       text-transform: uppercase;
-      color: #7a4a19;
+      color: var(--blue-dark);
     }
 
     .indiv-toggle-label {
@@ -463,7 +500,7 @@
 
     .indiv-description {
       font-size: 10px;
-      color: #7a6b5b;
+      color: #3a6172;
       font-style: italic;
       margin-bottom: 6px;
     }
@@ -485,7 +522,7 @@
       font-size: 10px;
       letter-spacing: 0.15em;
       text-transform: uppercase;
-      color: #7a6b5b;
+      color: #3a6172;
     }
 
     .indiv-table td {
@@ -493,7 +530,7 @@
     }
 
     .indiv-table tr:nth-child(even) td {
-      background: #fbf6ee;
+      background: #f4fbff;
     }
 
     .add-gift-btn {
@@ -501,13 +538,13 @@
       font-size: 11px;
       padding: 4px 10px;
       border-radius: 999px;
-      border: 1px solid #d8cfc5;
-      background: #f7f1e6;
+      border: 1px solid #b7d7ea;
+      background: #f0f8ff;
       cursor: pointer;
     }
 
     .add-gift-btn:hover {
-      background: #f0e3d4;
+      background: #e0f0ff;
     }
 
     @media (max-width: 960px) {
@@ -539,7 +576,7 @@
         padding-right: 24px;
       }
       .level-row {
-        grid-template-columns: minmax(0, 1fr);
+        grid-template-columns: minmax(0, 1fr) 24px;
       }
       .row-labels-right {
         margin-right: 0;
@@ -585,6 +622,7 @@
     <div class="rows" id="rowsContainer">
       <!-- rows injected by JS -->
     </div>
+    <button class="add-row-btn" id="addRowBtn">+ Add Level</button>
   </div>
 
   <div class="summary">
@@ -776,6 +814,7 @@
   // ---------- MAIN UI & STATE ----------
 
   const rowsContainer = document.getElementById("rowsContainer");
+  const addRowBtn = document.getElementById("addRowBtn");
   const goalInput = document.getElementById("goalInput");
   const titleInput = document.getElementById("titleInput");
   const headerTitleEl = document.getElementById("headerTitle");
@@ -819,11 +858,16 @@
           <div class="right-amount level-received">$0</div>
         </div>
       </div>
+
+      <div class="level-right">
+        <button class="delete-btn" type="button" title="Remove row">&times;</button>
+      </div>
     `;
 
     const receivedInput = row.querySelector(".received-input");
     const neededInput = row.querySelector(".needed-input");
     const labelInput = row.querySelector(".label-input");
+    const deleteBtn = row.querySelector(".delete-btn");
 
     // store manual received value separately
     receivedInput.dataset.manualReceived = received || 0;
@@ -835,6 +879,11 @@
 
     [neededInput, labelInput].forEach((inp) => {
       inp.addEventListener("input", recalcAll);
+    });
+
+    deleteBtn.addEventListener("click", () => {
+      row.remove();
+      recalcAll();
     });
 
     rowsContainer.appendChild(row);
@@ -966,19 +1015,19 @@
       if (index % 2 === 0) {
         barWrapper.style.background =
           "linear-gradient(to right," +
-          " #0047b5 0%," +
-          " #4f7fd6 18%," +
-          " #ffffff 50%," +
-          " #4f7fd6 82%," +
-          " #0047b5 100%)";
+          " #006da3 0%," +
+          " #007dba 18%," +
+          " #eafdff 50%," +
+          " #007dba 82%," +
+          " #006da3 100%)";
       } else {
         barWrapper.style.background =
           "linear-gradient(to right," +
-          " #c6001a 0%," +
-          " #ff7a7a 18%," +
-          " #ffffff 50%," +
-          " #ff7a7a 82%," +
-          " #c6001a 100%)";
+          " #00878c 0%," +
+          " #0073a9 18%," +
+          " #eafdff 50%," +
+          " #0073a9 82%," +
+          " #00878c 100%)";
       }
     });
 
@@ -1021,6 +1070,13 @@
     headerTitleEl.textContent = titleInput.value || "LEADERSHIP 200";
     saveState();
   });
+
+  if (addRowBtn) {
+    addRowBtn.addEventListener("click", () => {
+      addRow();
+      recalcAll();
+    });
+  }
 
   // Individual Gifts dropdown toggle
   const indivToggle = document.getElementById("indivToggle");
@@ -1099,7 +1155,7 @@
             font-size:14px;
             letter-spacing:0.15em;
             text-transform:uppercase;
-            background:#00308b;
+            background:#006da3;
             color:white;
             border:none;
             border-radius:6px;
