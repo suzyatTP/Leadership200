@@ -381,8 +381,8 @@ def build_pdf(state):
     c.setFont("Times-Roman", 8)
     c.drawCentredString(center, y, "TURNING POINT WITH DR. DAVID JEREMIAH")
 
-    y -= 24
-    c.setFont("Times-Bold", 26)
+    y -= 26
+    c.setFont("Times-Bold", 28)
     c.setFillColor(colors.HexColor("#9f1515"))
     c.drawCentredString(center, y, title.upper())
 
