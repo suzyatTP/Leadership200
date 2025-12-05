@@ -382,7 +382,7 @@ def build_pdf(state):
     c.drawCentredString(center, y, "TURNING POINT WITH DR. DAVID JEREMIAH")
 
     y -= 26
-    c.setFont("Times-Bold", 28)
+    c.setFont("Times-Bold", 32)
     c.setFillColor(colors.HexColor("#9f1515"))
     c.drawCentredString(center, y, title.upper())
 
@@ -474,7 +474,7 @@ def build_pdf(state):
     c.drawString(bar_left, bars_top + 32, "Gifts Received / Needed")
     c.drawRightString(bar_right, bars_top + 32, "Total Gift / Pledge Dollars Committed")
 
-    c.setFont("Times-Roman", 9)
+    c.setFont("Times-Roman", 12)
     steps_bar = 140
 
     for i, info in enumerate(row_infos):
@@ -519,7 +519,7 @@ def build_pdf(state):
         c.setFillColor(colors.white)
         c.drawString(
             bar_left + 5,
-            yb + 7.5,
+            yb + 8.5,
             f"{info['total_received']}/{info['needed']}",
         )
 
@@ -527,7 +527,7 @@ def build_pdf(state):
         c.setFillColor(BLUE_DARK)
         c.drawCentredString(
             bar_left + bar_width / 2.0,
-            yb + 7.5,
+            yb + 8.5,
             r.get("label", ""),
         )
 
@@ -535,7 +535,7 @@ def build_pdf(state):
         c.setFillColor(colors.white)
         c.drawRightString(
             bar_right - 5,
-            yb + 7.5,
+            yb + 8.5,
             _format_currency(info["amount_received"]),
         )
 
