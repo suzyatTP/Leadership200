@@ -452,11 +452,11 @@ def build_pdf(state):
     c.restoreState()
 
     # TOTAL inside triangle
-    c.setFont("Times-Roman", 9)
+    c.setFont("Times-Roman", 11)
     c.setFillColor(colors.black)
-    c.drawCentredString(center, tri_top - 8, "TOTAL")
-    c.setFont("Times-Bold", 20)
-    c.drawCentredString(center, tri_top - 25, _format_currency(goal))
+    c.drawCentredString(center, tri_top - 10, "TOTAL")
+    c.setFont("Times-Bold", 25)
+    c.drawCentredString(center, tri_top - 32, _format_currency(goal))
 
     # BARS
     row_h = 24
