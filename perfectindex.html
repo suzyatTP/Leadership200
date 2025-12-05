@@ -204,7 +204,7 @@
 
     .level-row {
       display: grid;
-      grid-template-columns: minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr) 24px;
       align-items: center;
       gap: 0;
       margin-bottom: 8px;
@@ -335,6 +335,21 @@
       font-size: 13px;
       font-variant-numeric: tabular-nums;
       z-index: 2;
+    }
+
+    .level-right {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Hide delete buttons so rows can't be removed */
+    .delete-btn {
+      display: none;
+    }
+
+    .add-row-btn {
+      display: none;
     }
 
     /* SUMMARY ------------------------------------------------------ */
@@ -539,7 +554,7 @@
         padding-right: 24px;
       }
       .level-row {
-        grid-template-columns: minmax(0, 1fr);
+        grid-template-columns: minmax(0, 1fr) 24px;
       }
       .row-labels-right {
         margin-right: 0;
@@ -551,8 +566,7 @@
 <div class="page">
   <div class="header">
     <div class="header-line-1">TURNING POINT WITH DR. DAVID JEREMIAH</div>
-    <div class="header-title" id="headerTitle">LEADERSHIP 200</div>
-    <div class="header-subtitle">ACCELERATE YOUR VISION</div>
+    <div class="header-title" id="headerTitle">ACCELERATE YOUR VISION</div>
     <div class="header-tagline">
       Delivering the Unchanging Word of God to an Ever-Changing World
     </div>
@@ -585,6 +599,7 @@
     <div class="rows" id="rowsContainer">
       <!-- rows injected by JS -->
     </div>
+    <button class="add-row-btn" id="addRowBtn">+ Add Level</button>
   </div>
 
   <div class="summary">
@@ -776,6 +791,7 @@
   // ---------- MAIN UI & STATE ----------
 
   const rowsContainer = document.getElementById("rowsContainer");
+  const addRowBtn = document.getElementById("addRowBtn");
   const goalInput = document.getElementById("goalInput");
   const titleInput = document.getElementById("titleInput");
   const headerTitleEl = document.getElementById("headerTitle");
@@ -819,11 +835,16 @@
           <div class="right-amount level-received">$0</div>
         </div>
       </div>
+
+      <div class="level-right">
+        <button class="delete-btn" type="button" title="Remove row">&times;</button>
+      </div>
     `;
 
     const receivedInput = row.querySelector(".received-input");
     const neededInput = row.querySelector(".needed-input");
     const labelInput = row.querySelector(".label-input");
+    const deleteBtn = row.querySelector(".delete-btn");
 
     // store manual received value separately
     receivedInput.dataset.manualReceived = received || 0;
@@ -835,6 +856,11 @@
 
     [neededInput, labelInput].forEach((inp) => {
       inp.addEventListener("input", recalcAll);
+    });
+
+    deleteBtn.addEventListener("click", () => {
+      row.remove();
+      recalcAll();
     });
 
     rowsContainer.appendChild(row);
@@ -1021,6 +1047,13 @@
     headerTitleEl.textContent = titleInput.value || "LEADERSHIP 200";
     saveState();
   });
+
+  if (addRowBtn) {
+    addRowBtn.addEventListener("click", () => {
+      addRow();
+      recalcAll();
+    });
+  }
 
   // Individual Gifts dropdown toggle
   const indivToggle = document.getElementById("indivToggle");
