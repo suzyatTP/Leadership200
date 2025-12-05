@@ -3,8 +3,9 @@ import json
 import re
 from io import BytesIO
 
-from flask import Flask, send_file, request, jsonify
+from flask import Flask, send_file, request, jsonify, redirect, url_for, session
 import psycopg2
+from functools import wraps
 
 # PDF libs
 from reportlab.pdfgen import canvas
@@ -70,7 +71,123 @@ def ensure_table():
 
 
 app = Flask(__name__)
+# Secret key for session cookies (set SECRET_KEY in env for production)
+app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret")
+
 ensure_table()
+
+# -------------------------------------------------------------------
+# SIMPLE PASSWORD GATE (SINGLE SHARED PASSWORD)
+# -------------------------------------------------------------------
+
+def login_required(f):
+    """Protect routes so only logged-in users (with the shared password) can access."""
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if not session.get("logged_in"):
+            # remember where the user was trying to go
+            next_url = request.path
+            return redirect(url_for("login", next=next_url))
+        return f(*args, **kwargs)
+    return wrapper
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    error = ""
+    if request.method == "POST":
+        password = request.form.get("password", "")
+        expected = os.environ.get("APP_PASSWORD", "leadership200")
+        if password == expected:
+            session["logged_in"] = True
+            next_url = request.args.get("next") or url_for("index")
+            return redirect(next_url)
+        else:
+            error = "Incorrect password. Please try again."
+
+    # Simple inline login page so we don't need a templates folder
+    error_html = f"<div class='error'>{error}</div>" if error else ""
+    return """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Leadership 200 – Login</title>
+  <style>
+    body {
+      font-family: Georgia, 'Times New Roman', serif;
+      background:#f3ede5;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      height:100vh;
+      margin:0;
+    }
+    .card {
+      background:white;
+      padding:32px 40px;
+      border-radius:10px;
+      box-shadow:0 10px 30px rgba(15,23,42,0.18);
+      max-width:380px;
+      width:100%;
+    }
+    h1 {
+      font-size:20px;
+      letter-spacing:0.18em;
+      text-transform:uppercase;
+      color:#9f1515;
+      text-align:center;
+      margin:0 0 18px;
+    }
+    label {
+      font-size:12px;
+      letter-spacing:0.12em;
+      text-transform:uppercase;
+      color:#444;
+      display:block;
+      margin-bottom:6px;
+    }
+    input[type='password'] {
+      width:100%;
+      padding:8px 10px;
+      border-radius:6px;
+      border:1px solid #d0c4b5;
+      font-size:14px;
+    }
+    button {
+      margin-top:16px;
+      width:100%;
+      padding:10px 16px;
+      border:none;
+      border-radius:6px;
+      background:#00308b;
+      color:white;
+      font-size:13px;
+      letter-spacing:0.16em;
+      text-transform:uppercase;
+      cursor:pointer;
+    }
+    .error {
+      margin-top:10px;
+      color:#b91c1c;
+      font-size:12px;
+      text-align:center;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Leadership 200</h1>
+    <form method="POST">
+      <label for="password">Access Password</label>
+      <input id="password" type="password" name="password" autocomplete="current-password" />
+      <button type="submit">Enter</button>
+      REPLACE_ERROR_HERE
+    </form>
+  </div>
+</body>
+</html>
+""".replace("REPLACE_ERROR_HERE", error_html)
+
 
 # -------------------------------------------------------------------
 # BASIC UTILS
@@ -133,11 +250,13 @@ def _format_currency(amount):
 # -------------------------------------------------------------------
 
 @app.route("/")
+@login_required
 def index():
     return send_file("index.html")
 
 
 @app.route("/api/state", methods=["GET"])
+@login_required
 def get_state():
     conn = get_conn()
     cur = conn.cursor()
@@ -150,6 +269,7 @@ def get_state():
 
 
 @app.route("/api/state", methods=["POST"])
+@login_required
 def save_state():
     state = request.get_json()
     conn = get_conn()
@@ -444,6 +564,7 @@ def build_pdf(state):
 
 
 @app.route("/generate-pdf", methods=["GET"])
+@login_required
 def generate_pdf():
     """Generate PDF using the state stored in the database."""
     conn = get_conn()
