@@ -416,7 +416,7 @@ def build_pdf(state):
     c.drawCentredString(label_center_x, strip_y - 17, _format_currency(total_received))
 
     # TRIANGLE (narrower, same height)
-    tri_top = strip_y - 35
+    tri_top = strip_y - 50
     tri_height = 360
     tri_half_width = width * 0.42
     tri_base_y = tri_top - tri_height
@@ -464,7 +464,7 @@ def build_pdf(state):
     n_rows = len(row_infos)
     step = row_h + row_gap
 
-    bars_top = tri_base_y + tri_height - 55
+    bars_top = tri_base_y + tri_height - 65
     bar_left = margin_x
     bar_right = width - margin_x
     bar_width = bar_right - bar_left
