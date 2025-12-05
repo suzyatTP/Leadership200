@@ -6,12 +6,13 @@ from io import BytesIO
 from flask import Flask, send_file, request, jsonify
 import psycopg2
 
+# PDF libs
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter, landscape
 from reportlab.lib import colors
 
 # -------------------------------------------------------------------
-# DATABASE SETUP
+# DATABASE / STATE
 # -------------------------------------------------------------------
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
@@ -87,10 +88,14 @@ def _parse_number(v):
         return 0.0
 
 
-def _gift_base(label: str) -> int:
-    """Extract base dollar amount from a row label."""
-    m = re.search(r"\$([\d,]+)", label or "")
-    return int(m.group(1).replace(",", "")) if m else 0
+def _gift_base(label: str) -> float:
+    """Extract base dollar amount from a row label (e.g. '$10,000,000' -> 10000000)."""
+    if not label:
+        return 0.0
+    m = re.search(r"\$([\d,]+(\.\d+)?)", label)
+    if not m:
+        return 0.0
+    return _parse_number(m.group(1))
 
 
 def _blend(c1, c2, t):
@@ -116,6 +121,11 @@ def _load_state_from_row(row):
             return default_state()
     # JSONB may already be a Python object
     return raw
+
+
+def _format_currency(amount):
+    """Match the JS formatCurrency: $1,234,567 with no decimals."""
+    return "$" + format(int(round(_parse_number(amount))), ",d")
 
 
 # -------------------------------------------------------------------
@@ -162,24 +172,75 @@ def save_state():
     conn.close()
     return jsonify({"status": "ok"})
 
+
 # -------------------------------------------------------------------
 # PDF GENERATION
 # -------------------------------------------------------------------
 
 def build_pdf(state):
-    """Render the Leadership 200 top section as a PDF."""
+    """
+    Render the Leadership 200 top section as a PDF.
+
+    Mirrors the front-end logic so that:
+      • Left fractions = manual received + auto gifts from the table.
+      • Right amounts = total dollars of gifts assigned to that level.
+      • Top blue pill = sum of all individual gifts.
+    """
     goal = _parse_number(state.get("goal"))
     title = state.get("title", "LEADERSHIP 200")
     rows = state.get("rows", []) or []
-    gifts = state.get("gifts", []) or []
+    gifts_raw = state.get("gifts", []) or []
 
-    total_received = sum(_parse_number(g.get("amount")) for g in gifts if g.get("amount"))
+    # ----- normalise gifts -------------------------------------------------
+    gifts = []
+    for g in gifts_raw:
+        amt = _parse_number(g.get("amount"))
+        if amt <= 0:
+            continue
+        gifts.append(
+            {
+                "amount": amt,
+                "donorName": g.get("donorName", ""),
+                "idNumber": g.get("idNumber", ""),
+                "purpose": g.get("purpose", ""),
+            }
+        )
 
+    # Grand total for "TOTAL RECEIVED TO DATE"
+    total_received = sum(g["amount"] for g in gifts)
+
+    # ----- build rowInfos like JS recalcAll() ------------------------------
+    row_infos = []
+    for r in rows:
+        base = _gift_base(r.get("label", ""))
+        row_infos.append({"row": r, "base": base, "gifts": []})
+
+    # assign each gift to a level based on amount
+    for gift in gifts:
+        amt = gift["amount"]
+        for idx, info in enumerate(row_infos):
+            base = info["base"] or 0.0
+            upper = row_infos[idx - 1]["base"] or float("inf") if idx > 0 else float("inf")
+            if amt >= base and amt < upper:
+                info["gifts"].append(gift)
+                break
+
+    # compute derived fields per row
+    for info in row_infos:
+        r = info["row"]
+        needed = int(_parse_number(r.get("needed")))
+        manual_received = int(_parse_number(r.get("received")))
+        auto_received = len(info["gifts"])
+        info["needed"] = needed
+        info["total_received"] = manual_received + auto_received
+        info["amount_received"] = sum(g["amount"] for g in info["gifts"])
+
+    # ----- draw PDF --------------------------------------------------------
     buf = BytesIO()
     c = canvas.Canvas(buf, pagesize=landscape(letter))
     width, height = landscape(letter)
 
-    # Colors (matched to HTML)
+    # Colors matched to HTML
     BLUE = colors.HexColor("#0047b5")
     BLUE_DARK = colors.HexColor("#00308b")
     BLUE_MID = colors.HexColor("#4f7fd6")
@@ -194,7 +255,7 @@ def build_pdf(state):
     center = width / 2.0
     margin_x = 50
 
-    # ---------------- HEADER ----------------
+    # HEADER
     y = height - 28
     c.setFillColor(colors.black)
     c.setFont("Times-Roman", 8)
@@ -218,32 +279,26 @@ def build_pdf(state):
         "Delivering the Unchanging Word of God to an Ever-Changing World",
     )
 
-    # ---------------- TOP STRIP ----------------
+    # TOP STRIP
     strip_y = y - 8
     c.setFillColor(BEIGE)
     c.rect(0, strip_y - 24, width, 24, stroke=0, fill=1)
 
-    # Label directly above the blue box, nudged slightly higher and a hair larger
     label_center_x = width - 125
     c.setFont("Times-Roman", 9)
     c.setFillColor(colors.black)
     c.drawCentredString(label_center_x, strip_y + 1, "TOTAL RECEIVED TO DATE")
 
-    # Blue amount pill
     c.setFillColor(BLUE_DARK)
     c.roundRect(width - 210, strip_y - 21, 170, 18, 3, stroke=0, fill=1)
     c.setFillColor(colors.white)
     c.setFont("Times-Bold", 11)
-    c.drawCentredString(
-        label_center_x,
-        strip_y - 17,
-        f"${total_received:,.0f}",
-    )
+    c.drawCentredString(label_center_x, strip_y - 17, _format_currency(total_received))
 
-    # ---------------- TRIANGLE (narrower, same height) ----------------
+    # TRIANGLE (narrower, same height)
     tri_top = strip_y - 45
-    tri_height = 300  # keep same height
-    tri_half_width = width * 0.35  # narrower than full width
+    tri_height = 300
+    tri_half_width = width * 0.35
     tri_base_y = tri_top - tri_height
 
     c.saveState()
@@ -276,37 +331,34 @@ def build_pdf(state):
         )
     c.restoreState()
 
-    # TOTAL text inside triangle – moved a bit higher
+    # TOTAL inside triangle
     c.setFont("Times-Roman", 9)
     c.setFillColor(colors.black)
     c.drawCentredString(center, tri_top - 8, "TOTAL")
     c.setFont("Times-Bold", 20)
-    c.drawCentredString(center, tri_top - 25, f"${goal:,.0f}")
+    c.drawCentredString(center, tri_top - 25, _format_currency(goal))
 
-    # ---------------- BARS ----------------
-    # Taller rows & larger fonts
+    # BARS
     row_h = 24
     row_gap = 7
-    n_rows = len(rows)
+    n_rows = len(row_infos)
     step = row_h + row_gap
 
-    # Position bars so top and bottom spacing feel balanced
     bars_top = tri_base_y + tri_height - 55
     bar_left = margin_x
     bar_right = width - margin_x
     bar_width = bar_right - bar_left
 
-    # Top labels (bigger and clearer)
     c.setFont("Times-Bold", 12)
     c.setFillColor(BLUE_DARK)
     c.drawString(bar_left, bars_top + 32, "Gifts Received / Needed")
     c.drawRightString(bar_right, bars_top + 32, "Total Gift / Pledge Dollars Committed")
 
-    # Draw each bar + text
     c.setFont("Times-Roman", 9)
     steps_bar = 140
 
-    for i, r in enumerate(rows):
+    for i, info in enumerate(row_infos):
+        r = info["row"]
         yb = bars_top - i * step
         is_blue = (i % 2 == 0)
         step_w = bar_width / float(steps_bar)
@@ -315,7 +367,6 @@ def build_pdf(state):
             t = j / float(steps_bar - 1)
 
             if is_blue:
-                # blue → blue-mid → white → blue-mid → blue
                 if t <= 0.18:
                     col = _blend(BLUE, BLUE_MID, t / 0.18)
                 elif t <= 0.5:
@@ -325,7 +376,6 @@ def build_pdf(state):
                 else:
                     col = _blend(BLUE_MID, BLUE, (t - 0.82) / 0.18)
             else:
-                # red → red-light → white → red-light → red
                 if t <= 0.18:
                     col = _blend(RED, RED_LIGHT, t / 0.18)
                 elif t <= 0.5:
@@ -345,15 +395,15 @@ def build_pdf(state):
                 fill=1,
             )
 
-        # Left fraction text (bigger, vertically centered)
+        # left fraction
         c.setFillColor(colors.white)
         c.drawString(
             bar_left + 5,
             yb + 7.5,
-            f"{r.get('received', 0)}/{r.get('needed', 0)}",
+            f"{info['total_received']}/{info['needed']}",
         )
 
-        # Center label (bigger)
+        # center label
         c.setFillColor(BLUE_DARK)
         c.drawCentredString(
             bar_left + bar_width / 2.0,
@@ -361,34 +411,32 @@ def build_pdf(state):
             r.get("label", ""),
         )
 
-        # Right amount
+        # right dollars
         c.setFillColor(colors.white)
         c.drawRightString(
             bar_right - 5,
             yb + 7.5,
-            "$0",
+            _format_currency(info["amount_received"]),
         )
 
-    # ---------------- BOTTOM BANNER ----------------
+    # BOTTOM BANNER
     banner_w = width * 0.55
     banner_h = 24
     banner_x = (width - banner_w) / 2.0
-    # Move banner slightly closer to the last row
     banner_y = bars_top - n_rows * step - 16
 
     c.setFillColor(BLUE_DARK)
     c.rect(banner_x, banner_y, banner_w, banner_h, stroke=0, fill=1)
 
-    total_gifts = sum(r.get("needed", 0) for r in rows)
+    total_gifts_needed = sum(int(_parse_number(r.get("needed"))) for r in rows)
     c.setFillColor(colors.white)
     c.setFont("Times-Bold", 12)
     c.drawCentredString(
         width / 2.0,
         banner_y + 7,
-        f"{total_gifts:,} LEADERSHIP GIFTS/PLEDGES",
+        f"{total_gifts_needed:,} LEADERSHIP GIFTS/PLEDGES",
     )
 
-    # Finalize
     c.showPage()
     c.save()
     buf.seek(0)
