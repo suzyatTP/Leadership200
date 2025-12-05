@@ -416,9 +416,9 @@ def build_pdf(state):
     c.drawCentredString(label_center_x, strip_y - 17, _format_currency(total_received))
 
     # TRIANGLE (narrower, same height)
-    tri_top = strip_y - 45
-    tri_height = 300
-    tri_half_width = width * 0.35
+    tri_top = strip_y - 35
+    tri_height = 360
+    tri_half_width = width * 0.42
     tri_base_y = tri_top - tri_height
 
     c.saveState()
